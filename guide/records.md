@@ -3,6 +3,7 @@
 ## 원본 위치
 | 무엇 | 어디 |
 |---|---|
+| 사용자 배경 지식·답변 선호 | profile.md |
 | 목표·학습 목표·제약·단계 위치 | project/project.md |
 | 단계 | project/Steps/SNN.md (step.md를 복사) |
 | 구조 | project/flowchart.html의 pbl-data JSON |
@@ -44,9 +45,7 @@
 
 ### concepts
 - 최상위: learner 문자열, items 배열.
-- learner: 대화에서 드러난 학습자 배경을 짧게 적는다.
-  - 예: "C 포인터는 익숙, 인터럽트 동시성은 처음"
-  - 설문으로 채우지 않는다.
+- learner: 사용자 배경은 profile.md로 옮겼다. 이 칸은 "profile.md 참고" 안내만 둔다(검사 도구 호환을 위해 문자열 유지).
 - 항목: id/name/goal/why/ability/code/step/state/level/evidence.
 - goal: project.md의 학습 목표 ID(L01 등) 또는 빈 문자열.
 - state: 미확인 / 이해 공백 / 확인됨 / 재확인 / 범위 제외.

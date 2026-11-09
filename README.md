@@ -88,7 +88,8 @@ UART 직접 연결 대신 RS485 버스로 바꾸자.
 |---|---|
 | 무엇을 했고 왜 통과했는가 | project/Steps/S01.md 등 |
 | 값·정책을 왜 골랐고 바꾸면 어떻게 되는가 | project/params.html |
-| 내가 무엇을 이해하지 못했거나 아직 확인하지 않았는가 | concepts.html (상태별 보기, 이해 수준, 학습자 메모) |
+| 내가 무엇을 이해하지 못했거나 아직 확인하지 않았는가 | concepts.html (상태별 보기, 이해 수준) |
+| AI가 아는 내 배경 지식과 내가 선호하는 답변 형식 | profile.md |
 | 전체가 어떻게 동작하는가 | project/flowchart.html |
 
 HTML 화면 사용법
