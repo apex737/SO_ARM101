@@ -1,0 +1,5 @@
+# 비전 예제(01~03-*.py)용. 이 개발 PC에는 아직 설치하지 않음 (미검증)
+# pyrealsense2: Windows/Linux x86_64는 pip 휠 사용. Raspberry Pi(ARM)는 휠이 없을 수 있어 librealsense 소스 빌드가 필요할 수 있음(확인 필요)
+numpy
+opencv-python
+pyrealsense2

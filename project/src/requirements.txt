@@ -1,0 +1,4 @@
+# Pi 게이트웨이 실행용 (S01 시험 통과 버전: fastapi 0.162.2, pydantic 2.14.3, uvicorn 0.54.0)
+# 설치: pip install -r requirements.txt
+fastapi>=0.115,<1.0
+uvicorn>=0.30

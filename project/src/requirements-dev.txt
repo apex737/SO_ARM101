@@ -1,0 +1,5 @@
+# 개발·시험용 (S01 시험 통과 버전: pytest 9.2.0, httpx 0.28.1)
+# 설치: pip install -r requirements-dev.txt  → 실행: python -m pytest (project/src에서)
+-r requirements.txt
+pytest>=8
+httpx>=0.27

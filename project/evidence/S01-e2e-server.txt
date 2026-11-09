@@ -1,0 +1,19 @@
+### order
+202 {"order_id": "ord_de4fb4485356", "request_id": "e2e-1", "status": "QUEUED", "priority": 0, "items": [{"color": "red", "qty": 2}, {"color": "blue", "qty": 1}, {"color": "green", "qty": 1}], "error": null, "cancel_requested": false, "created_at": "2026-11-09T13:15:16.775Z", "started_at": null, "finished_at": null, "tasks": [{"task_id": 1, "seq": 1, "color": "red", "status": "PENDING", "error": null, "attempts": []}, {"task_id": 2, "seq": 2, "color": "red", "status": "PENDING", "error": null, "attempts": []}, {"task_id": 3, "seq": 3, "color": "blue", "status": "PENDING", "error": null, "attempts": []}, {"task_id": 4, "seq": 4, "color": "green", "status": "PENDING", "error": null, "attempts": []}]}
+RUNNING   3/4 picks
+DONE      4/4 picks
+{
+}
+### replay same request_id
+200 {"order_id": "ord_de4fb4485356", "request_id": "e2e-1", "status": "DONE", "priority": 0, "items": [{"color": "red", 
+### invalid
+422 {"error": "validation_error", "detail": [{"loc": ["body", "items", 0, "color"], "msg": "unknown color; allowed: ['red', 'green', 'blue']", "type": "color"}]
+### audit
+422 pc-6029ea04ff1d None None
+200 e2e-1 ord_de4fb4485356 DONE
+202 e2e-1 ord_de4fb4485356 DONE
+### attempts
+1 red SUCCEEDED [('SUCCESS', 301.9)]
+2 red SUCCEEDED [('SUCCESS', 301.3)]
+3 blue SUCCEEDED [('SUCCESS', 301.3)]
+4 green SUCCEEDED [('SUCCESS', 301.6)]

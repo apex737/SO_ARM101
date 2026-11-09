@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>값과 정책 · PBL</title>
+<style>
+:root{--bg:#f5f4ee;--card:#fcfbf8;--line:#e3dfd3;--text:#29261b;--muted:#6f6b60;--accent:#c96442;--accent-soft:#f4e6dd;--node:#f8efe7;--node-line:#ddb9a4;--code:#f0eee6;
+--ok:#4f6b3c;--ok-bg:#e7eddc;--gap:#b0472c;--gap-bg:#f6e0d8;--warn:#8a6418;--warn-bg:#f4ead1;--none:#6f6b60;--none-bg:#ebe8df;
+--serif:ui-serif,"Tiempos Text","Iowan Old Style",Georgia,"Noto Serif KR","Nanum Myeongjo","AppleMyungjo",serif;
+--sans:system-ui,-apple-system,"Segoe UI","Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#262624;--card:#30302e;--line:#45443f;--text:#ece9e1;--muted:#a6a398;--accent:#d97757;--accent-soft:#41312a;--node:#3a312c;--node-line:#7a5545;--code:#2a2a28;
+--ok:#a9c48f;--ok-bg:#33392b;--gap:#ee9a80;--gap-bg:#4a2f27;--warn:#e0bd6f;--warn-bg:#41391f;--none:#a6a398;--none-bg:#3a3935}}
+:root[data-theme="dark"]{--bg:#262624;--card:#30302e;--line:#45443f;--text:#ece9e1;--muted:#a6a398;--accent:#d97757;--accent-soft:#41312a;--node:#3a312c;--node-line:#7a5545;--code:#2a2a28;
+--ok:#a9c48f;--ok-bg:#33392b;--gap:#ee9a80;--gap-bg:#4a2f27;--warn:#e0bd6f;--warn-bg:#41391f;--none:#a6a398;--none-bg:#3a3935}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 var(--sans);-webkit-font-smoothing:antialiased}
+header,main,footer{max-width:880px;margin:0 auto;padding:0 24px}
+header{padding-top:28px}
+nav{display:flex;flex-wrap:wrap;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;width:fit-content;max-width:100%}
+nav a{padding:6px 14px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:14px}
+nav a:hover{color:var(--text);background:var(--code)}
+nav a[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.eyebrow{margin:28px 0 0;color:var(--accent);font-size:13px;letter-spacing:.06em}
+h1{font:500 36px/1.25 var(--serif);margin:4px 0 6px;letter-spacing:-.01em}
+h2{font:500 22px/1.35 var(--serif);margin:36px 0 8px}
+.muted{color:var(--muted);margin:0}
+#meta{font-size:15px}
+.note{font-size:14px;margin-top:2px}
+.callout{margin:16px 0 0;padding:12px 16px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:14px}
+.search{margin:28px 0 6px}
+label{display:block;font-size:14px;color:var(--muted);margin-bottom:6px}
+input{width:100%;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text);font:inherit;outline:none;transition:border-color .15s,box-shadow .15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+#count{font-size:13px;margin:8px 2px 0}
+article,.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:14px 0}
+article h3{font:500 19px/1.4 var(--serif);margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.id{font:600 12px/1 var(--sans);color:var(--muted);background:var(--code);padding:4px 8px;border-radius:6px;letter-spacing:.02em}
+.badge{display:inline-block;font:600 12px/1 var(--sans);padding:5px 10px;border-radius:999px;background:var(--none-bg);color:var(--none);margin-left:auto}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}.badge.gap{background:var(--gap-bg);color:var(--gap)}.badge.warn{background:var(--warn-bg);color:var(--warn)}
+details{margin-top:12px}
+summary{cursor:pointer;color:var(--accent);font-size:14px;width:fit-content;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸";display:inline-block;margin-right:6px;transition:transform .15s}
+details[open] summary::before{transform:rotate(90deg)}
+dl{display:grid;grid-template-columns:150px 1fr;gap:10px 18px;margin:14px 0 0;font-size:15px}
+dt{color:var(--muted)}
+dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+dd.empty{color:var(--muted);font-style:italic}
+dd ul{margin:0;padding-left:18px}
+pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--code);padding:10px 12px;border-radius:8px}
+.empty-state{padding:28px 22px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:14px;margin:14px 0}
+#graph{overflow:auto;padding:12px}
+svg{width:100%;min-width:540px;display:block}
+svg .node{fill:var(--node);stroke:var(--node-line)}
+svg .t1{fill:var(--text);font:500 15px var(--sans)}
+svg .t2{fill:var(--muted);font:13px var(--sans)}
+svg .edge{fill:none;stroke:var(--accent);stroke-width:1.6}
+svg .head{fill:var(--accent)}
+svg .lbl{fill:var(--muted);font:12px var(--sans)}
+footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+.chip{font:500 13px/1 var(--sans);padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.chip:hover{border-color:var(--accent)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.chip .num{font-variant-numeric:tabular-nums;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chip[aria-pressed="true"] .num{color:var(--accent)}
+.chip.zero{opacity:.55}
+.learner{margin:20px 0 0}
+.learner h2{font-size:17px;margin:0 0 4px}
+.learner p{margin:0;white-space:pre-wrap}
+.learner p.empty{color:var(--muted);font-style:italic}
+@media(max-width:600px){header,main,footer{padding-left:16px;padding-right:16px}h1{font-size:30px}dl{grid-template-columns:1fr;gap:2px}dt{margin-top:10px;font-weight:600}article,.panel{padding:16px}.badge{margin-left:0}}
+</style>
+<header><nav><a href="flowchart.html">동작 흐름</a><a href="params.html" aria-current="page">값·정책</a><a href="../concepts.html">이해 상태</a></nav><p class="eyebrow">PBL</p><h1>값과 정책</h1><p id="meta" class="muted"></p><p class="muted note">읽기 전용 · 수정할 내용은 AI에게 말하고 저장 후 새로고침하세요.</p><div id="callout"></div></header>
+<main><div id="graph" class="panel"></div><div id="learner"></div><div class="search"><label for="search">항목 검색</label><input id="search" placeholder="이름, 코드, Step 또는 키워드"><div id="filters" class="filters" role="group" aria-label="상태별 보기"></div></div><p id="count" class="muted"></p><div id="items"></div><div id="extra"></div></main>
+<footer>판정은 기록된 조건과 근거에 한정됩니다.</footer>
+<script id="pbl-data" type="application/json">
+{
+  "version": 1,
+  "project": "KitBot",
+  "updated": "2026-11-09",
+  "example": false,
+  "kind": "params",
+  "not_applicable": "",
+  "items": [
+    {
+      "id": "P01",
+      "name": "max_attempts (작업당 실패 시도 한도)",
+      "value": 3,
+      "unit": "회",
+      "source": "추정",
+      "role": "한 물체 집기를 몇 번 실패하면 포기하고 주문을 FAILED로 할지",
+      "basis": "실제 정책 성공률이 없어 임의로 둔 시작값. S06에서 실측 성공률 p로 다시 정함(3회 연속 실패 확률 (1-p)^3)",
+      "up": "주문 성공률 증가, 실패 주문의 처리 시간 증가",
+      "down": "빠른 포기, 일시적 실패에도 주문 FAILED 증가",
+      "pairs": [
+        "P02 (시도당 최대 시간 × 횟수 = 작업 최악 시간)"
+      ],
+      "code": "kitbot/config.py, worker.py _run_task",
+      "step": "S01",
+      "decision": "D03",
+      "state": "S06 실측 후 재검토"
+    },
+    {
+      "id": "P02",
+      "name": "attempt_timeout_s (pick 시간 한도)",
+      "value": 30.0,
+      "unit": "s",
+      "source": "추정",
+      "role": "정책이 집기를 끝내야 하는 deadline. 넘으면 드라이버가 TIMEOUT 반환 → 복구·재시도",
+      "basis": "실제 집기 시간 미측정. 넉넉한 임시값",
+      "up": "느린 정상 집기도 허용, 멈춘 정책 감지가 늦어짐",
+      "down": "정상 집기가 TIMEOUT으로 끊길 위험",
+      "pairs": [
+        "P03",
+        "S05 추론 지연·정책 에피소드 길이"
+      ],
+      "code": "kitbot/config.py, worker.py _attempt",
+      "step": "S01",
+      "decision": "D08",
+      "state": "S05 실측 후 재설정"
+    },
+    {
+      "id": "P03",
+      "name": "driver_grace_s (무응답 판정 여유)",
+      "value": 5.0,
+      "unit": "s",
+      "source": "추정",
+      "role": "P02 뒤 드라이버가 돌아오지 않으면 DRIVER_HUNG → FAULT까지 추가로 기다리는 시간",
+      "basis": "드라이버가 deadline 확인 후 정지 동작을 마치는 시간 여유로 둔 임시값",
+      "up": "무응답 감지 지연",
+      "down": "정지 중인 정상 드라이버를 무응답으로 오판",
+      "pairs": [
+        "P02"
+      ],
+      "code": "kitbot/config.py, worker.py _call",
+      "step": "S01",
+      "decision": "D08",
+      "state": "S03 실제 드라이버 정지 시간 측정 후 재검토"
+    },
+    {
+      "id": "P04",
+      "name": "action_timeout_s (verify/place/recover 한도)",
+      "value": 15.0,
+      "unit": "s",
+      "source": "추정",
+      "role": "잡힘 확인·놓기·복구 호출 시간 한도. 넘으면 DRIVER_HUNG(→FAULT) 또는 복구 실패(→FAULT)",
+      "basis": "암 이동 속도 미측정. 임시값",
+      "up": "고장 감지 지연",
+      "down": "느린 정상 이동을 고장으로 오판",
+      "pairs": [],
+      "code": "kitbot/config.py, worker.py",
+      "step": "S01",
+      "decision": "D08",
+      "state": "S03 실측 후 재설정"
+    },
+    {
+      "id": "P05",
+      "name": "max_queued_orders (대기 주문 한도)",
+      "value": 20,
+      "unit": "건",
+      "source": "추정",
+      "role": "QUEUED 주문이 이 수 이상이면 새 주문을 503 + Retry-After로 거절 (과부하 보호)",
+      "basis": "주문 처리 속도 미측정. 운영자가 화면으로 감당할 규모로 둔 임시값",
+      "up": "더 많이 쌓임, 오래된 주문 대기 시간 증가",
+      "down": "PC가 재시도해야 하는 경우 증가",
+      "pairs": [
+        "Retry-After 10s (api.py)"
+      ],
+      "code": "kitbot/config.py, store.py create_order",
+      "step": "S01",
+      "decision": "D01",
+      "state": "적용"
+    },
+    {
+      "id": "P06",
+      "name": "colors (허용 색상)",
+      "value": "red, green, blue",
+      "unit": "",
+      "source": "추정",
+      "role": "주문에 쓸 수 있는 색. 목록 밖이면 422",
+      "basis": "기존 비전 예제 project/src/03-HSV_Color_Region.py의 3색과 맞춤. 실제 부품 색 미확인",
+      "up": "색 추가 시 정책 학습 데이터(S04)도 그 색만큼 필요",
+      "down": "",
+      "pairs": [
+        "S04 수집할 색",
+        "HSV_RANGES (03-HSV_Color_Region.py)"
+      ],
+      "code": "kitbot/config.py, schemas.py check_limits",
+      "step": "S01",
+      "decision": "",
+      "state": "실제 부품 색 확인 필요"
+    },
+    {
+      "id": "P07",
+      "name": "max_qty_per_item / max_items_per_order",
+      "value": "5 / 10",
+      "unit": "개",
+      "source": "추정",
+      "role": "품목당·주문당 개수 한도. 넘으면 422",
+      "basis": "키트 박스 용량·작업대 물체 수 미확인. 임시값",
+      "up": "한 주문 처리 시간 증가, 작업대 물체 부족 가능",
+      "down": "큰 키트를 나눠 주문해야 함",
+      "pairs": [
+        "키트 박스 용량",
+        "작업대에 놓는 물체 수"
+      ],
+      "code": "kitbot/config.py, schemas.py check_limits",
+      "step": "S01",
+      "decision": "",
+      "state": "실제 키트 규격 확인 필요"
+    },
+    {
+      "id": "P08",
+      "name": "멱등성 정책",
+      "value": "같은 request_id+본문 → 200 기존 주문 / 다른 본문 → 409",
+      "unit": "",
+      "source": "시험",
+      "role": "재전송으로 같은 키트가 두 번 만들어지는 것을 막음",
+      "basis": "D02. tests/test_api.py 동시 5회 전송 시 주문 1개 확인",
+      "up": "",
+      "down": "",
+      "pairs": [
+        "B01 재전송 로직"
+      ],
+      "code": "store.py create_order, api.py create_order",
+      "step": "S01",
+      "decision": "D02",
+      "state": "적용"
+    },
+    {
+      "id": "P09",
+      "name": "worker_poll_s (빈 대기열 재확인 주기)",
+      "value": 0.5,
+      "unit": "s",
+      "source": "추정",
+      "role": "notify가 없을 때 작업자가 DB를 다시 보는 주기. 새 주문은 notify로 즉시 깨우므로 지연에 거의 영향 없음",
+      "basis": "안전망 용도. 영향 작음",
+      "up": "notify 누락 시 시작 지연 증가",
+      "down": "Pi CPU·DB 조회 약간 증가",
+      "pairs": [],
+      "code": "kitbot/config.py, worker.py _idle",
+      "step": "S01",
+      "decision": "D01",
+      "state": "적용"
+    },
+    {
+      "id": "P10",
+      "name": "SQLite 내구성 설정",
+      "value": "WAL + synchronous=FULL",
+      "unit": "",
+      "source": "추정",
+      "role": "전원 차단 시 커밋된 주문·결과를 잃지 않게 함",
+      "basis": "Pi는 전원 차단 가능성이 있다고 가정. 쓰기 성능보다 기록 보존 우선. 쓰기 지연 미측정",
+      "up": "",
+      "down": "NORMAL로 낮추면 쓰기 빠름, 전원 차단 시 마지막 트랜잭션 유실 가능",
+      "pairs": [
+        "DB 위치 (SD카드/SSD, 미확인)"
+      ],
+      "code": "store.py Store.__init__",
+      "step": "S01",
+      "decision": "D01",
+      "state": "Pi에서 쓰기 지연 측정 필요"
+    },
+    {
+      "id": "P11",
+      "name": "실패·정지 정책",
+      "value": "실패→recover→재시도 / 한도 도달→주문 FAILED, 남은 작업 SKIPPED / 복구 실패·무응답→FAULT 정지",
+      "unit": "",
+      "source": "시험",
+      "role": "집기 실패와 물리 상태 불명을 어떻게 처리할지",
+      "basis": "D03(불완전 키트는 쓸 수 없다는 가정), D04. tests/test_worker.py로 동작 확인",
+      "up": "",
+      "down": "부분 키트 허용으로 바꾸면 PARTIAL 상태와 클라이언트 처리 추가 필요",
+      "pairs": [
+        "P01",
+        "운영 화면(S02)의 FAULT 표시·리셋"
+      ],
+      "code": "worker.py _run_order, _run_task",
+      "step": "S01",
+      "decision": [
+        "D03",
+        "D04"
+      ],
+      "state": "적용 (부분 키트 정책은 사용자 확인 필요)"
+    }
+  ]
+}
+</script>
+<script>
+const d=JSON.parse(document.getElementById('pbl-data').textContent);
+const labels={id:'ID',name:'이름',value:'값·정책',unit:'단위',role:'역할',basis:'선택 근거',up:'키우거나 강화하면',down:'줄이거나 완화하면',pairs:'함께 바꿀 항목',code:'관련 코드',step:'관련 Step',decision:'관련 결정',state:'현재 상태',why:'왜 알아야 하나',ability:'확인할 수행',evidence:'확인 근거',history:'변경·평가 이력',does:'하는 일',runs:'실행 주체',when:'실행 시점·주기',shared:'공유 상태·보호 방법',functions:'관련 함수',params:'관련 설정',from:'출발',to:'도착',data:'전달 내용',form:'형식·단위',rate:'주기·조건',via:'전달 수단',title:'제목',steps:'시간순 이동',condition:'조건',status:'상태',result:'결과',source:'근거 종류',answer:'사용자 답',rubric:'평가 기준',prompt:'문항',date:'날짜',hints:'힌트 사용',level:'이해 수준',goal:'학습 목표',learner:'학습자 메모'};
+const tone={'확인됨':'ok','이해 공백':'gap','재확인':'warn','재검증 필요':'warn'};
+const el=(tag,text,cls)=>{const x=document.createElement(tag);if(text!==undefined)x.textContent=text;if(cls)x.className=cls;return x;};
+document.getElementById('meta').textContent=(d.project||'프로젝트 미설정')+' · 갱신 '+(d.updated||'아직 없음');
+if(d.example)document.getElementById('callout').append(el('p','설명용 예시입니다. 실제 시험·학습 통과 증거가 아닙니다.','callout'));
+function value(v,dd){
+ if(Array.isArray(v)&&v.length&&v.every(x=>typeof x!=='object')){const ul=el('ul');v.forEach(x=>ul.append(el('li',String(x))));dd.append(ul);}
+ else if(Array.isArray(v)?v.length:v&&typeof v==='object'){dd.append(el('pre',JSON.stringify(v,null,2)));}
+ else if(v===''||v===undefined||v===null||Array.isArray(v)){dd.textContent='미기록';dd.className='empty';}
+ else dd.textContent=String(v);
+}
+function fields(obj,target){const dl=el('dl');for(const [k,v] of Object.entries(obj)){if(['id','name','title','state','level'].includes(k))continue;dl.append(el('dt',labels[k]||k));const dd=el('dd');value(v,dd);dl.append(dd);}target.append(dl);}
+function heading(x,text){const h=el('h3');h.append(el('span',x.id,'id'),el('span',text));if(x.state)h.append(el('span',x.state+(x.level?' · '+x.level:''),'badge '+(tone[x.state]||'')));return h;}
+const all=d.items||d.blocks||[];let query='',only='';
+if(d.kind==='concepts'){const box=document.getElementById('learner');box.className='panel learner';box.append(el('h2','학습자 메모'));const t=(d.learner||'').trim();box.append(el('p',t||'아직 없습니다. 대화에서 익숙한 것과 처음인 것이 드러나면 AI가 한 줄로 적습니다.',t?'':'empty'));}
+function filters(){const box=document.getElementById('filters');box.replaceChildren();const order=d.kind==='concepts'?['미확인','이해 공백','확인됨','재확인','범위 제외']:[];const seen=[...order];for(const x of all)if(x.state&&!seen.includes(x.state))seen.push(x.state);if(!seen.length)return;
+ const chip=(label,val,n)=>{const b=el('button',undefined,'chip'+(n?'':' zero'));b.type='button';b.setAttribute('aria-pressed',String(only===val));b.append(el('span',label),el('span',String(n),'num'));b.addEventListener('click',()=>{only=only===val||val===''?'':val;filters();render();});box.append(b);};
+ chip('전체','',all.length);for(const s of seen)chip(s,s,all.filter(x=>x.state===s).length);}
+function render(){const q=query.toLowerCase();const out=document.getElementById('items');out.replaceChildren();const items=all;const selected=items.filter(x=>(!only||x.state===only)&&JSON.stringify(x).toLowerCase().includes(q));document.getElementById('count').textContent=selected.length+' / '+items.length+' 항목'+(only?' · '+only+'만':'');if(!items.length)out.append(el('div',d.not_applicable||'아직 기록이 없습니다. 구현한 내용이 생기면 AI가 갱신합니다.','empty-state'));else if(!selected.length)out.append(el('div','조건에 맞는 항목이 없습니다.','empty-state'));for(const x of selected){const a=el('article');a.id=x.id;a.append(heading(x,x.name||x.title||''));const detail=el('details');detail.open=true;detail.append(el('summary','기록 보기'));fields(x,detail);a.append(detail);out.append(a);}}
+document.getElementById('graph').hidden=!(d.kind==='flow'&&d.blocks.length);
+filters();render();document.getElementById('search').addEventListener('input',e=>{query=e.target.value;render();});
+if(d.kind==='flow'){
+ const host=document.getElementById('graph');const ns='http://www.w3.org/2000/svg';const s=(tag,attrs,text)=>{let x=document.createElementNS(ns,tag);for(let[k,v]of Object.entries(attrs))x.setAttribute(k,v);if(text!==undefined)x.textContent=text;return x;};
+ if(d.blocks.length){const svg=s('svg',{viewBox:'0 0 800 '+((d.blocks.length-1)*150+100),role:'img','aria-label':'실제 동작 블록과 데이터 흐름'});const defs=s('defs',{}),m=s('marker',{id:'arrow',viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});m.append(s('path',{d:'M 0 0 L 10 5 L 0 10 z',class:'head'}));defs.append(m);svg.append(defs);
+ d.blocks.forEach((b,i)=>{const y=i*150+15;svg.append(s('rect',{x:190,y,width:420,height:70,rx:12,class:'node'}));svg.append(s('text',{x:212,y:y+29,class:'t1'},b.id+' · '+b.name));svg.append(s('text',{x:212,y:y+52,class:'t2'},b.runs||b.does));});
+ d.links.forEach((l,i)=>{const a=d.blocks.findIndex(b=>b.id===l.from),b=d.blocks.findIndex(b=>b.id===l.to);if(a<0||b<0)return;let path;if(b===a+1)path='M 400 '+(a*150+85)+' L 400 '+(b*150+15);else{let x=650+(i%4)*30;path='M 610 '+(a*150+50)+' H '+x+' V '+(b*150+50)+' H 610';}svg.append(s('path',{d:path,class:'edge','marker-end':'url(#arrow)'}));const tip=l.id+(l.data?' · '+l.data:'');let lb;if(b===a+1)lb=s('text',{x:412,y:a*150+125,class:'lbl'},tip);else{let x=650+(i%4)*30;lb=s('text',{x:x+5,y:(Math.min(a,b)*150+Math.max(a,b)*150)/2+54,class:'lbl'},l.id);}lb.append(s('title',{},tip));svg.append(lb);});host.append(svg);}
+ for(const [key,title]of [['links','연결과 데이터'],['traces','실제 입력 하나 따라가기']]){const section=el('section');section.append(el('h2',title));const list=d[key]||[];if(!list.length)section.append(el('div','아직 기록이 없습니다.','empty-state'));for(const x of list){const a=el('article');a.id=x.id;a.append(heading(x,x.title||x.data||''));fields(x,a);section.append(a);}document.getElementById('extra').append(section);}
+}
+</script></html>
