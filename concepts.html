@@ -79,7 +79,7 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
   "updated": "2026-11-09",
   "example": false,
   "kind": "concepts",
-  "learner": "ACT로 그리퍼 실습 경험 있음(정해진 반복 작업만 하는 한계를 직접 봄). RealSense·OpenCV HSV 색 검출 예제 보유. 학습 전략·RealSense 활용·LeRobot 연동은 막막하다고 함",
+  "learner": "ACT로 그리퍼 실습 경험 있음(정해진 반복 작업만 하는 한계를 직접 봄). RealSense·OpenCV HSV 색 검출 예제 보유. 학습 전략·RealSense 활용·LeRobot 연동은 막막하다고 함. SQL·DB는 잘 모른다고 함(2026-11-09). FastAPI도 처음(2026-11-09)",
   "items": [
     {
       "id": "C01",
@@ -281,6 +281,30 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
       "ability": "복구 시연 비율을 바꿨을 때 결과 차이를 예측하고 실험으로 확인한다",
       "code": "S05 예정",
       "step": "",
+      "state": "미확인",
+      "level": "",
+      "evidence": []
+    },
+    {
+      "id": "C18",
+      "name": "SQL과 SQLite 기초 (테이블·행·트랜잭션)",
+      "goal": "",
+      "why": "게이트웨이의 주문·작업·시도·감사 기록이 모두 SQLite 테이블에 있다. C03(DB 대기열)을 이해하는 바탕",
+      "ability": "orders/tasks/attempts 테이블에서 한 주문의 시도 결과를 SELECT로 직접 조회하고, 트랜잭션이 왜 필요한지 예로 설명한다",
+      "code": "kitbot/store.py SCHEMA, create_order, claim_next_order",
+      "step": "S01",
+      "state": "미확인",
+      "level": "",
+      "evidence": []
+    },
+    {
+      "id": "C19",
+      "name": "FastAPI 기초 (주소→함수 연결, pydantic 입력 검사, 응답 코드)",
+      "goal": "",
+      "why": "Pi 게이트웨이의 입구. 주문 형식을 바꾸거나 조회 기능을 추가할 때 고치는 곳",
+      "ability": "api.py에서 주문 요청이 어느 함수로 가는지 찾고, /docs로 주문을 보내 202/422를 직접 만들어 보고, 간단한 조회 주소 하나를 추가한다",
+      "code": "kitbot/api.py create_order, kitbot/schemas.py OrderCreate",
+      "step": "S01",
       "state": "미확인",
       "level": "",
       "evidence": []

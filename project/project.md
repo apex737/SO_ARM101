@@ -2,7 +2,7 @@
 
 - 이름: KitBot — 주문에 맞춰 부품을 담는 작업 키트 구성 로봇 (SO-ARM101)
 - 코드 위치: project/src/kitbot/ (게이트웨이 패키지), project/src/tests/ (시험), project/src/requirements*.txt (실행/개발/비전). 원 요구: project/src/pjt.md. 비전 예제: project/src/CamExample/01~03-*.py
-- 현재 작업: S01 통과(Mock 기준). 설계 토론 중 — 집기 구조(2단 접근 여부) 확정 후 S02 RealSense 인식 모듈 시작. 사용자 확인 대기: RealSense 모델, 블록 8색 목록, 2단 접근 채택 여부, 부분 키트 허용 여부
+- 현재 작업: S01 통과(Mock 기준). 설계 토론 중 — 근거·제안·미결 질문은 project/evidence/2026-11-09-design-discussion.md. 다음 S02 RealSense 인식 모듈. 사용자 확인 대기: 2단 접근 채택 여부, RealSense 모델, 블록 8색 목록·크기, 성공 기준 정의, 부분 키트 허용 여부
 - 환경·제약: 확인된 정보만 기록
   - 배치(사용자 결정 2026-11-09, 안 2): SO-ARM101 팔로워·카메라는 GPU PC에 USB 연결. GPU PC가 인식·정책 추론·서보 제어를 한 컴퓨터 안에서 수행한다. Pi는 게이트웨이(주문 API·대기열·DB·화면)로 GPU PC 실행 서버에 "red 하나 집어" 수준의 명령을 보내고 결과를 판정·기록한다.
   - Pi: Raspberry Pi 5 (사용자 답변). OS 미확인. Pi↔GPU PC: 이더넷·Wi-Fi 둘 다 가능.
