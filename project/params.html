@@ -177,17 +177,17 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
       "unit": "",
       "source": "추정",
       "role": "주문에 쓸 수 있는 색. 목록 밖이면 422",
-      "basis": "기존 비전 예제 project/src/03-HSV_Color_Region.py의 3색과 맞춤. 실제 부품 색 미확인",
+      "basis": "기존 비전 예제 project/src/CamExample/03-HSV_Color_Region.py의 3색과 맞춤. 실제 부품 색 미확인",
       "up": "색 추가 시 정책 학습 데이터(S04)도 그 색만큼 필요",
       "down": "",
       "pairs": [
         "S04 수집할 색",
-        "HSV_RANGES (03-HSV_Color_Region.py)"
+        "HSV_RANGES (CamExample/03-HSV_Color_Region.py)"
       ],
       "code": "kitbot/config.py, schemas.py check_limits",
       "step": "S01",
       "decision": "",
-      "state": "실제 부품 색 확인 필요"
+      "state": "블록 8색 목록 확인 필요 (작업대 최대 8개)"
     },
     {
       "id": "P07",

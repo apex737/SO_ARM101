@@ -175,7 +175,7 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
     {
       "id": "B06",
       "name": "로봇 드라이버 (현재 Mock)",
-      "does": "pick(color, deadline)/verify_grasp/place/recover/status. Mock은 시나리오 토큰으로 성공·실패·무응답 재현. 실제 SO-ARM101 드라이버는 S03",
+      "does": "pick(color, deadline)/verify_grasp/place/recover/status. Mock은 시나리오 토큰으로 성공·실패·무응답 재현. 실제(S03, 배치 안 2): Pi에서 GPU PC 실행 서버를 네트워크로 호출하는 클라이언트. 팔·카메라 제어는 GPU PC가 함",
       "runs": "B05의 driver 스레드",
       "when": "호출 시",
       "shared": "Mock: outcomes 목록",
@@ -241,7 +241,7 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
       "data": "color, deadline → PickResult/GraspCheck/ActionResult",
       "form": "Python 호출",
       "rate": "L05와 같음",
-      "via": "함수 호출 (실제 드라이버는 S03에서 USB 직렬 등 미확인)"
+      "via": "현재 함수 호출(Mock). S03부터 Pi→GPU PC 네트워크 호출(이더넷/Wi-Fi, 규약 미정)"
     }
   ],
   "traces": [
