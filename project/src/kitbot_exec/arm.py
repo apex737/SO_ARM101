@@ -52,19 +52,19 @@ class Arm:
 
     # ---------- 이동 ----------
     def move_joints(self, q_target, gripper: float | None = None, speed_dps: float = 40.0,
-                    settle_tol_deg: float = 2.0, settle_timeout_s: float = 2.0) -> None:
-        """관절 공간에서 부드럽게(코사인 가감속) 이동."""
+                    settle_tol_deg: float = 2.0, settle_timeout_s: float = 2.0) -> bool:
+        """관절 공간에서 부드럽게(코사인 가감속) 이동. 멈춤 기준 안에 들어왔으면 True, 시간 초과면 False."""
         q0, g0 = self.read()
         q1 = np.asarray(q_target, float)
         g1 = g0 if gripper is None else float(gripper)
         dur = max(np.max(np.abs(q1 - q0)) / speed_dps, abs(g1 - g0) / 100.0, 0.3)
         self._stream([q0 + (q1 - q0) * s for s in _profile(dur)], [g0 + (g1 - g0) * s for s in _profile(dur)])
-        self._settle(q1, g1, settle_tol_deg, settle_timeout_s)
+        return self._settle(q1, g1, settle_tol_deg, settle_timeout_s)
 
-    def follow(self, q_path, gripper: float) -> None:
-        """미리 계산한 관절 경로(직선 이동 등)를 HZ로 따라간다."""
+    def follow(self, q_path, gripper: float) -> bool:
+        """미리 계산한 관절 경로(직선 이동 등)를 HZ로 따라간다. 반환값은 move_joints와 같다."""
         self._stream(list(q_path), [gripper] * len(q_path))
-        self._settle(np.asarray(q_path[-1]), gripper, 2.0, 2.0)
+        return self._settle(np.asarray(q_path[-1]), gripper, 2.0, 2.0)
 
     def set_gripper(self, value: float, wait_s: float = 1.0) -> float:
         q, _ = self.read()
@@ -86,14 +86,17 @@ class Arm:
             nxt += period
             time.sleep(max(0.0, nxt - time.perf_counter()))
 
-    def _settle(self, q1, g1, tol, timeout) -> None:
+    def _settle(self, q1, g1, tol, timeout) -> bool:
+        """목표 관절값과의 차이가 tol 안이 될 때까지 기다린다. 동작은 예전과 같고, 결과만 돌려준다
+        (예전에는 시간 초과여도 아무 표시 없이 끝났다)."""
         t = time.time()
         while time.time() - t < timeout:
             self.send(q1, g1)
             q, _ = self.read()
             if np.max(np.abs(q - q1)) < tol:
-                return
+                return True
             time.sleep(1.0 / HZ)
+        return False
 
 
 def _profile(duration_s: float) -> np.ndarray:
