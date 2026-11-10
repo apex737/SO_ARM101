@@ -76,7 +76,7 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
 {
   "version": 1,
   "project": "KitBot",
-  "updated": "2026-11-09",
+  "updated": "2026-11-10",
   "example": false,
   "kind": "flow",
   "blocks": [
@@ -186,6 +186,85 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
         "MockDriver.recover"
       ],
       "params": []
+    },
+    {
+      "id": "B07",
+      "name": "위 웹캠 (노트북)",
+      "does": "작업 영역과 키트 박스를 비스듬히 내려다보며 BGR 사진(640×480)을 낸다",
+      "runs": "노트북 프로세스 안의 OpenCV 캡처 (현재 view_blocks.py)",
+      "when": "매 프레임 (목표 30fps, 미측정)",
+      "shared": "없음",
+      "functions": [
+        "camera.open_webcam",
+        "camera.lock_exposure"
+      ],
+      "params": [
+        "P12"
+      ]
+    },
+    {
+      "id": "B08",
+      "name": "블록 검출",
+      "does": "HSV 색 마스크 → 잡음 제거 → 블록 모양 거르기 → 블록마다 중심 픽셀·화면 각도·꼭짓점",
+      "runs": "B07과 같은 프로세스, 같은 반복문",
+      "when": "매 프레임",
+      "shared": "없음 (HSV_RANGES 상수)",
+      "functions": [
+        "vision.detect_blocks",
+        "vision.draw_blocks"
+      ],
+      "params": []
+    },
+    {
+      "id": "B09",
+      "name": "화면 → 로봇 좌표 보정",
+      "does": "블록 중심·꼭짓점 픽셀을 로봇 x, y(mm)와 블록 각도로, 윗면 높이 z는 보정 평면에서 계산",
+      "runs": "B08 결과를 받는 같은 프로세스 (계산만)",
+      "when": "블록마다",
+      "shared": "보정 파일(JSON, PixelToRobot.save)",
+      "functions": [
+        "calib.PixelToRobot.block_pose",
+        "calib.fit_pixel_to_robot"
+      ],
+      "params": [
+        "P12"
+      ]
+    },
+    {
+      "id": "B10",
+      "name": "역기구학 + 안전 검사",
+      "does": "목표 (x, y, z + 접근 높이)와 블록 각도 → 관절 5개, 내려가기·들어 올리기 직선 경로. 테이블 아래·닿지 않음·관절 한계 초과·경로 중 관절 튐은 거부 (pick.plan_pick)",
+      "runs": "conda lerobot 환경 (placo 필요). 현재 시험에서만 호출",
+      "when": "목표마다",
+      "shared": "없음",
+      "functions": [
+        "kinematics.SO101Kinematics.ik_top_down",
+        "pick.plan_pick"
+      ],
+      "params": [
+        "P13",
+        "P14",
+        "P15",
+        "P17"
+      ]
+    },
+    {
+      "id": "B11",
+      "name": "팔로워 제어 (LeRobot)",
+      "does": "관절 보간 이동·경로 따라가기·그리퍼 열고 닫기. HOME → 접근 → 내려가기 → 집기 → 들어 올리기 → 그리퍼 값으로 잡았는지 판정 → BASKET → 놓기 → HOME",
+      "runs": "pick.py 프로세스의 주 스레드 (conda lerobot)",
+      "when": "집기 한 번마다, 명령은 30Hz",
+      "shared": "poses.json(HOME·BASKET·그리퍼 값), calib_top.json",
+      "functions": [
+        "arm.Arm.move_joints",
+        "arm.Arm.follow",
+        "arm.Arm.set_gripper",
+        "pick.main"
+      ],
+      "params": [
+        "P16",
+        "P17"
+      ]
     }
   ],
   "links": [
@@ -242,6 +321,42 @@ footer{padding-top:24px;padding-bottom:40px;color:var(--muted);font-size:13px}
       "form": "Python 호출",
       "rate": "L05와 같음",
       "via": "현재 함수 호출(Mock). S03부터 Pi→GPU PC 네트워크 호출(이더넷/Wi-Fi, 규약 미정)"
+    },
+    {
+      "id": "L07",
+      "from": "B07",
+      "to": "B08",
+      "data": "BGR 사진 1장",
+      "form": "numpy 배열 480×640×3",
+      "rate": "매 프레임",
+      "via": "함수 호출"
+    },
+    {
+      "id": "L08",
+      "from": "B08",
+      "to": "B09",
+      "data": "Block(중심 픽셀, 꼭짓점 4개, 화면 각도)",
+      "form": "Python 객체",
+      "rate": "블록마다",
+      "via": "함수 호출"
+    },
+    {
+      "id": "L09",
+      "from": "B09",
+      "to": "B10",
+      "data": "(x, y, 윗면 z [mm], 블록 각도 [°])",
+      "form": "float 4개",
+      "rate": "목표마다",
+      "via": "함수 호출 (pick.py에서 연결)"
+    },
+    {
+      "id": "L10",
+      "from": "B10",
+      "to": "B11",
+      "data": "관절 경로(접근 자세, 내려가기·들어 올리기 경로)",
+      "form": "numpy 배열 목록 [deg]",
+      "rate": "집기 한 번마다",
+      "via": "함수 호출 → LeRobot send_action → USB 시리얼(서보 버스)"
     }
   ],
   "traces": [

@@ -34,7 +34,8 @@ def as_list(value):
 
 def step_files(root):
     folder = root / 'project/Steps'
-    return {p.stem: p for p in folder.glob('*.md') if p.name != 'step.md'} if folder.is_dir() else {}
+    # SNN.md만 Step 기록으로 본다 (S02_ActionPlan.md 같은 보조 문서는 제외)
+    return {p.stem: p for p in folder.glob('*.md') if re.fullmatch(r'S\d{2}', p.stem)} if folder.is_dir() else {}
 
 
 def check(root, allow_example=False):

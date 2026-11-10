@@ -1,0 +1,76 @@
+#Intel RealSense 카메라 제어 라이브러리
+import pyrealsense2 as rs 
+#이미지 데이터를 배열 형태로 처리하는 라이브러리
+import numpy as np 
+#OpenCV, 영상 처리 및 화면 출력 라이브러리
+import cv2
+
+#1. 카메라 파이프라인 설정
+#카메라 스트리밍을 관리하는 파이프라인 객체 생성
+pipeline = rs.pipeline() 
+#해상도, 스트림 종류, 픽셀 형식, FPS 설정 객체 생성
+config = rs.config()
+
+#컬러 영상 스트림 설정
+#해상도 : 640x480
+#픽셀 형식 : BGR, 8bit 색영역 표현
+#프레임 속도: 30FPS (초당 30프레임)
+# config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+
+# 깊이 영상 스트림 설정
+# z16 : 16bit 깊이 원시값, 단위 mm
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+
+# 깊이 데이터를 색상 영역으로 변환하는 객체
+colorizer = rs.colorizer()
+
+#설정한 스트림으로 카메라 시작
+pipeline.start(config)
+
+#--------------------------------------
+#2. 실시간 영상 수신
+try:
+    while True:
+        #활성화된 스트림에서 실시간 새로운 프레임 세트를 수신
+        frames = pipeline.wait_for_frames()
+
+        # 수신한 프레임 세트에서 깊이 프레임만 추출
+        depth_frame = frames.get_depth_frame()
+
+        #수신한 프레임 세트에서 컬러 프레임만 추출
+        # color_frame = frames.get_color_frame()
+
+        #컬러 프레임이 없으면 현재 반복을 건너뛰고 다시 수신
+        if not depth_frame:
+            continue
+
+        # 깊이 프레임 데이터를 NumPy 배열로 변환
+        # 깊이 차이를 색상으로 구분하며, 실제 물체의 색이 아닌 깊이 정보를 색상 영역으로 표현
+        depth_color_frame = colorizer.colorize(depth_frame)
+
+        # OpneCV에서 처리할 수 있는 이미지 배열 생성
+        color_image = np.asanyarray(depth_color_frame.get_data())
+
+        #BGR 컬러 이미지를 HSV색 영역으로 변환
+        depth_color_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2HSV)
+        
+        #3. 영상출력
+        cv2.imshow("SSAFY RGBD CAMERA STREAM", color_image) #원본 영상
+        #cv2.imshow("Color Mask (HSV)", mask3) #인식된 부분만 255로 표현
+        #cv2.imshow("Color Mask Bit Wise", mask_bit) #인식된 부분만 실제표현
+
+
+        #4. 키보드 입력으로 종료 처리
+
+        #waitKey(1): 최소 1ms 동안 키 입력 대기 및 창 이벤트 처리
+        #ord('q'): 문자'q'를 정수 코드 113로 변환
+        #&연산, 0xFF: 키 코드의 하위 8비트만 추출
+        #'q'키가 입력되면 반복문 종료
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+finally:
+    #5. 프로그램 종료 및 리소스 정리
+    pipeline.stop()             #카메라 스트리밍 중지
+    cv2.destroyAllWindows()     #모든 OpenCV창 닫기

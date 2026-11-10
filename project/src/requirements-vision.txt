@@ -1,4 +1,4 @@
-# 비전 예제(01~03-*.py)용. 이 개발 PC에는 아직 설치하지 않음 (미검증)
+# 비전 예제(practice/00-CamExample/)용. Ubuntu 22.04 .venv(Python 3.11)에 설치·불러오기 확인 2026-11-10: numpy 2.4.6, opencv-python 5.0.0.93, pyrealsense2 2.59.1 (예제 직접 실행은 미확인)
 # pyrealsense2: Windows/Linux x86_64는 pip 휠 사용. Raspberry Pi(ARM)는 휠이 없을 수 있어 librealsense 소스 빌드가 필요할 수 있음(확인 필요)
 numpy
 opencv-python
