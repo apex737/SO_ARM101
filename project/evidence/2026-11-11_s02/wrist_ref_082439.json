@@ -1,0 +1,161 @@
+{
+ "c_ref": [
+  224.03173438823274,
+  208.40330665295235
+ ],
+ "angle_ref": -1.9354202736151436,
+ "size_ref": 109.73076438903809,
+ "J": [
+  [
+   -5.2022,
+   0.1964
+  ],
+  [
+   0.5184,
+   -5.276
+  ]
+ ],
+ "k_yaw": 1.068,
+ "d_ref_mm": 176.0,
+ "meta": {
+  "time": "2026-11-11 08:24:39",
+  "J_fit_rms_px": 11.02,
+  "block_xy_model": [
+   151.5,
+   81.8
+  ],
+  "approach_mm": 40.0,
+  "gripper_open_est_mm": 73.8,
+  "gripper_block_value": 12.3,
+  "moves_tool_mm": [
+   [
+    3.02,
+    -0.9
+   ],
+   [
+    -8.77,
+    -0.6
+   ],
+   [
+    -7.62,
+    6.91
+   ],
+   [
+    -0.16,
+    -8.81
+   ]
+  ],
+  "moves_px": [
+   [
+    -4.8,
+    -8.4
+   ],
+   [
+    43.9,
+    0.6
+   ],
+   [
+    47.1,
+    -48.4
+   ],
+   [
+    2.9,
+    41.5
+   ]
+  ],
+  "resid_px": [
+   [
+    11.0,
+    -14.7
+   ],
+   [
+    -1.6,
+    2.0
+   ],
+   [
+    6.1,
+    -8.0
+   ],
+   [
+    3.8,
+    -4.9
+   ]
+  ],
+  "back_minus_ref_px": 33.5,
+  "shots": {
+   "center": {
+    "px": [
+     224.0,
+     208.4
+    ],
+    "size_px": 109.7,
+    "angle_deg": -1.9,
+    "frame": "var/exp_s02/frames/082421_wristref_center.jpg"
+   },
+   "move+10_+0": {
+    "px": [
+     219.2,
+     200.0
+    ],
+    "size_px": 102.8,
+    "angle_deg": -0.2,
+    "frame": "var/exp_s02/frames/082422_wristref_move+10_+0.jpg"
+   },
+   "move-10_+0": {
+    "px": [
+     268.0,
+     209.0
+    ],
+    "size_px": 110.6,
+    "angle_deg": -0.4,
+    "frame": "var/exp_s02/frames/082426_wristref_move-10_+0.jpg"
+   },
+   "move+0_+10": {
+    "px": [
+     271.1,
+     160.0
+    ],
+    "size_px": 110.7,
+    "angle_deg": 0.3,
+    "frame": "var/exp_s02/frames/082428_wristref_move+0_+10.jpg"
+   },
+   "move+0_-10": {
+    "px": [
+     226.9,
+     249.9
+    ],
+    "size_px": 104.1,
+    "angle_deg": -0.5,
+    "frame": "var/exp_s02/frames/082432_wristref_move+0_-10.jpg"
+   },
+   "yaw+10": {
+    "px": [
+     226.8,
+     204.5
+    ],
+    "size_px": 110.4,
+    "angle_deg": 8.2,
+    "frame": "var/exp_s02/frames/082433_wristref_yaw+10.jpg"
+   },
+   "up20": {
+    "px": [
+     230.4,
+     177.4
+    ],
+    "size_px": 98.6,
+    "angle_deg": -1.4,
+    "frame": "var/exp_s02/frames/082437_wristref_up20.jpg"
+   },
+   "back": {
+    "px": [
+     257.5,
+     209.1
+    ],
+    "size_px": 106.7,
+    "angle_deg": -0.3,
+    "frame": "var/exp_s02/frames/082439_wristref_back.jpg"
+   }
+  },
+  "frame": "var/exp_s02/frames/082439_wristref.jpg"
+ }
+}

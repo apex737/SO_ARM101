@@ -162,3 +162,39 @@ def test_straddle_goes_down_records_and_returns_up(patched, monkeypatch, tmp_pat
     assert [len(f) for f in ctx.arm.follows] == [2, 2]
     assert np.allclose(ctx.arm.follows[1][-1], low[0])                       # 거꾸로 올라옴
     assert np.allclose(ctx.arm.moves[-1], np.zeros(5))                       # 마지막은 HOME
+
+
+def test_place_info_regions():
+    pytest.importorskip("cv2")
+    sq = np.array([[80.0, 40.0, 0], [160.0, 40.0, 0], [160.0, 240.0, 0], [80.0, 240.0, 0]])
+    cal = SimpleNamespace(pairs_mm=sq)
+    assert ex.place_info(cal, 120.0, 160.0)["region"] == "grid"
+    assert ex.place_info(cal, 151.0, 80.0)["region"] == "calib"
+    assert ex.place_info(cal, 200.0, 300.0)["region"] == "outside"
+    assert ex.place_info(cal, 120.0, 160.0)["nearest_grid_mm"] == pytest.approx(0.0)
+
+
+def test_general_trial_descends_and_returns_before_home(patched, monkeypatch):
+    class Arm(FakeArm):
+        def __init__(self):
+            super().__init__(np.zeros(5))
+            self.log = []
+
+        def move_joints(self, q, g=None, speed=40.0):
+            super().move_joints(q, g, speed)
+            self.log.append("move")
+
+        def follow(self, path, g):
+            self.q = np.asarray(path[-1], float)
+            self.log.append("follow")
+
+    ctx = make_ctx(np.zeros(5))
+    ctx.arm = Arm()
+    ctx.z_table = lambda x, y: 0.0
+    low = [np.array([20.0, 1.0, -5.0, 80.0, 10.0])]
+    monkeypatch.setattr(ex, "line_path", lambda *a, **k: low)
+    monkeypatch.setattr(ex.wm, "observe", lambda frames, color: None)
+    rec = ex.approach_trial(ctx, "gen_t", Correction([]), ref(), None, low_clear_mm=15.0, ask=False)
+    assert rec["low"]["diag_low"]["clear_read_mm_model"] == pytest.approx(20.0)   # FakeKin z = 50 + q2 = 45, 블록 윗면 25
+    assert ctx.arm.log == ["move", "move", "follow", "follow", "move"]   # HOME, 접근, 내려감, 올라옴, HOME
+    assert np.allclose(ctx.arm.moves[-1], np.zeros(5))

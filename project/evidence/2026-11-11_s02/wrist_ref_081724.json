@@ -1,0 +1,32 @@
+{
+ "c_ref": [
+  273.94128186934455,
+  281.0242615345677
+ ],
+ "angle_ref": -0.15190139602636776,
+ "size_ref": 129.0,
+ "J": [
+  [
+   -4.9303,
+   -0.1424
+  ],
+  [
+   0.1168,
+   -4.5391
+  ]
+ ],
+ "k_yaw": 0.796,
+ "d_ref_mm": 88.4,
+ "meta": {
+  "time": "2026-11-11 08:17:24",
+  "J_fit_rms_px": 11.23,
+  "block_xy_model": [
+   161.7,
+   150.2
+  ],
+  "approach_mm": 40.0,
+  "gripper_open_est_mm": 73.8,
+  "gripper_block_value": 12.3,
+  "frame": "var/exp_s02/frames/081724_wristref.jpg"
+ }
+}

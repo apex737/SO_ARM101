@@ -57,3 +57,14 @@ def test_screen_axes_match_calibration():
     ax = screen_axes(cal, 150.0, 100.0)
     assert ax[:, 0] == pytest.approx([0.0, -1.0], abs=1e-6)   # 오른쪽
     assert ax[:, 1] == pytest.approx([1.0, 0.0], abs=1e-6)    # 위
+
+
+def test_work_area_filter_uses_calibration_hull():
+    from types import SimpleNamespace
+    pytest.importorskip("cv2")
+    from kitbot_exec.pick import in_work_area
+    cal = SimpleNamespace(pairs_mm=np.array([[80, 40, 0], [160, 40, 0], [160, 240, 0], [80, 240, 0]], float))
+    assert in_work_area(cal, 120, 140)
+    assert in_work_area(cal, 175, 140)            # 경계 밖 15mm는 여유(25mm) 안
+    assert not in_work_area(cal, 260, 170)        # 바구니 쪽
+    assert in_work_area(SimpleNamespace(pairs_mm=None), 999, 999)

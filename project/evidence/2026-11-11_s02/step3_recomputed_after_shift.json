@@ -1,0 +1,164 @@
+[
+ {
+  "name": "near_0_r1",
+  "block_camera": [
+   110.8,
+   199.3,
+   1.7,
+   0.7
+  ],
+  "err_tool_mm_before": [
+   14.0,
+   4.1
+  ],
+  "err_tool_mm_after": [
+   3.0,
+   4.1
+  ],
+  "err_mm_after": 5.1
+ },
+ {
+  "name": "near_0_r2",
+  "block_camera": [
+   110.7,
+   199.1,
+   1.7,
+   1.2
+  ],
+  "err_tool_mm_before": [
+   13.2,
+   3.6
+  ],
+  "err_tool_mm_after": [
+   2.2,
+   3.6
+  ],
+  "err_mm_after": 4.3
+ },
+ {
+  "name": "near_0_r3",
+  "block_camera": [
+   110.7,
+   199.2,
+   1.7,
+   0.5
+  ],
+  "err_tool_mm_before": [
+   13.1,
+   3.3
+  ],
+  "err_tool_mm_after": [
+   2.1,
+   3.3
+  ],
+  "err_mm_after": 3.9
+ },
+ {
+  "name": "middle_0_r1",
+  "block_camera": [
+   135.5,
+   222.1,
+   -0.6,
+   0.2
+  ],
+  "err_tool_mm_before": [
+   11.7,
+   4.0
+  ],
+  "err_tool_mm_after": [
+   0.7,
+   4.0
+  ],
+  "err_mm_after": 4.0
+ },
+ {
+  "name": "middle_0_r2",
+  "block_camera": [
+   135.7,
+   222.3,
+   -0.6,
+   -0.0
+  ],
+  "err_tool_mm_before": [
+   11.0,
+   4.4
+  ],
+  "err_tool_mm_after": [
+   -0.0,
+   4.4
+  ],
+  "err_mm_after": 4.4
+ },
+ {
+  "name": "middle_0_r3",
+  "block_camera": [
+   135.8,
+   222.1,
+   -0.6,
+   -0.1
+  ],
+  "err_tool_mm_before": [
+   11.2,
+   4.5
+  ],
+  "err_tool_mm_after": [
+   0.2,
+   4.5
+  ],
+  "err_mm_after": 4.5
+ },
+ {
+  "name": "far_0_r1",
+  "block_camera": [
+   150.6,
+   236.5,
+   -2.0,
+   -3.8
+  ],
+  "err_tool_mm_before": [
+   7.1,
+   3.4
+  ],
+  "err_tool_mm_after": [
+   -3.9,
+   3.4
+  ],
+  "err_mm_after": 5.1
+ },
+ {
+  "name": "far_0_r2",
+  "block_camera": [
+   150.6,
+   236.3,
+   -2.0,
+   -4.2
+  ],
+  "err_tool_mm_before": [
+   7.6,
+   3.7
+  ],
+  "err_tool_mm_after": [
+   -3.4,
+   3.7
+  ],
+  "err_mm_after": 5.0
+ },
+ {
+  "name": "far_0_r3",
+  "block_camera": [
+   150.8,
+   236.4,
+   -2.0,
+   -3.0
+  ],
+  "err_tool_mm_before": [
+   7.0,
+   3.1
+  ],
+  "err_tool_mm_after": [
+   -4.0,
+   3.1
+  ],
+  "err_mm_after": 5.0
+ }
+]

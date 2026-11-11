@@ -67,3 +67,30 @@ def test_small_hole_is_filled():
     cv2.circle(img, (320, 240), 2, (200, 200, 200), -1)
     blocks = detect_blocks(img, "red")
     assert len(blocks) == 1 and blocks[0].fill > 0.9
+
+
+# 2026-11-11 위 카메라 실측 색(HSV 중간값)으로 그린 블록 6개가 각자 자기 색에서만 1개씩 잡혀야 한다
+MEASURED_HSV = {"red": (5, 150, 250), "orange": (13, 132, 250), "yellow": (22, 155, 250),
+                "green": (65, 96, 172), "blue": (102, 120, 207), "purple": (129, 80, 170)}
+
+
+def test_measured_colors_are_separated():
+    img = np.full((480, 640, 3), (220, 220, 220), np.uint8)
+    centers = {}
+    for i, (name, hsv) in enumerate(MEASURED_HSV.items()):
+        bgr = tuple(int(v) for v in cv2.cvtColor(np.uint8([[hsv]]), cv2.COLOR_HSV2BGR)[0, 0])
+        c = (80 + 95 * i, 240)
+        draw_square(img, c, 40, 10 * i, bgr)
+        centers[name] = c
+    for name, c in centers.items():
+        found = detect_blocks(img, name)
+        assert len(found) == 1, name
+        assert np.allclose(found[0].center_px, c, atol=2), name
+
+
+def test_basket_and_cyan_box_are_not_blocks():
+    img = np.full((480, 640, 3), (220, 220, 220), np.uint8)
+    for hsv, c in (((75, 90, 110), (150, 200)), ((93, 255, 170), (400, 200))):   # 바구니(짙은 초록), 하늘색 상자
+        bgr = tuple(int(v) for v in cv2.cvtColor(np.uint8([[hsv]]), cv2.COLOR_HSV2BGR)[0, 0])
+        draw_square(img, c, 40, 0, bgr)
+    assert detect_blocks(img, "green") == [] and detect_blocks(img, "blue") == []

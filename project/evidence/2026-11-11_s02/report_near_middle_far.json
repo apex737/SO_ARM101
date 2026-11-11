@@ -1,0 +1,120 @@
+{
+ "run": "../evidence/2026-11-11_s02",
+ "filter": [
+  "near",
+  "middle",
+  "far"
+ ],
+ "approach": {
+  "n_trials": 9,
+  "by_result": {
+   "approached": 9
+  },
+  "n_measured": 9,
+  "wrist_visible": "9/9",
+  "settle_timeout": "9/9",
+  "target_minus_read_deg_mean": [
+   -0.65,
+   -0.35,
+   -2.44,
+   0.3,
+   0.47
+  ],
+  "target_minus_read_deg_maxabs": [
+   0.75,
+   0.47,
+   2.61,
+   0.44,
+   0.56
+  ],
+  "pass": "3/9",
+  "pass_rate": 0.333,
+  "err_mm_mean_xy": [
+   -4.1,
+   -10.5
+  ],
+  "err_mm_abs": {
+   "mean": 11.3,
+   "max": 14.6
+  },
+  "err_yaw_deg": {
+   "mean": -1.9,
+   "maxabs": 5.1
+  },
+  "height_offset_mm": {
+   "mean": -22.0,
+   "min": -27.0,
+   "max": -19.0
+  },
+  "repeat": {
+   "near_0": {
+    "n": 3,
+    "mean_mm": [
+     -3.7,
+     -13.4
+    ],
+    "spread_mm": 0.7,
+    "spread_yaw_deg": 0.9,
+    "spread_height_mm": 1.2
+   },
+   "middle_0": {
+    "n": 3,
+    "mean_mm": [
+     -4.5,
+     -11.2
+    ],
+    "spread_mm": 0.6,
+    "spread_yaw_deg": 1.0,
+    "spread_height_mm": 4.3
+   },
+   "far_0": {
+    "n": 3,
+    "mean_mm": [
+     -4.0,
+     -6.9
+    ],
+    "spread_mm": 0.4,
+    "spread_yaw_deg": 1.4,
+    "spread_height_mm": 5.8
+   }
+  },
+  "radial_fit": {
+   "a_mm": -37.0,
+   "b_mm_per_100mm": 10.1,
+   "r_range_mm": [
+    228,
+    280
+   ]
+  }
+ },
+ "table_touch": {
+  "n": 6,
+  "z_mean": -20.4,
+  "z_range": 8.2,
+  "z_vs_distance_mm_per_100mm": -7.93,
+  "model_minus_calib_table_z": {
+   "mean": 0.6,
+   "range": 3.7
+  }
+ },
+ "wrist_ref": {
+  "c_ref": [
+   224.03173438823274,
+   208.40330665295235
+  ],
+  "angle_ref": -1.9354202736151436,
+  "size_ref": 109.73076438903809,
+  "J": [
+   [
+    -5.2022,
+    0.1964
+   ],
+   [
+    0.5184,
+    -5.276
+   ]
+  ],
+  "k_yaw": 1.068,
+  "d_ref_mm": 176.0
+ }
+}

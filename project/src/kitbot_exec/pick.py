@@ -133,8 +133,24 @@ def plan_pick(kin: SO101Kinematics, x, y, z_top, yaw, q_seed, p: PickParams = Pi
     return PickPlan(True, "", block, pre.q_deg, stretch(down), stretch(up), info)
 
 
+WORK_AREA_MARGIN_MM = 25.0   # 보정점 범위(볼록 다각형) 바깥 이 거리까지는 작업 영역으로 본다
+
+
+def in_work_area(calib, x, y, margin_mm: float = WORK_AREA_MARGIN_MM) -> bool:
+    """블록 자리가 작업 영역(보정점 범위 + margin) 안인가. 바구니 안 블록·화면 가장자리 물체를 거르려는 것.
+    보정점이 없으면 거르지 않는다."""
+    pts = getattr(calib, "pairs_mm", None)
+    if pts is None or len(pts) < 3:
+        return True
+    import cv2
+
+    hull = cv2.convexHull(np.ascontiguousarray(np.asarray(pts, np.float32)[:, :2]))
+    return cv2.pointPolygonTest(hull, (float(x), float(y)), True) >= -margin_mm
+
+
 def detect_block_pose(cap, gains, color, calib, n_frames=15):
-    """여러 장에서 같은 블록을 찾아 평균. 블록이 정확히 하나여야 함(가장 큰 것을 고르지 않는다: 잘못 집는 것 방지)."""
+    """여러 장에서 같은 블록을 찾아 평균. 작업 영역 안에서 블록이 정확히 하나여야 함
+    (가장 큰 것을 고르지 않는다: 잘못 집는 것 방지). 바구니 안처럼 작업 영역 밖 블록은 세지 않는다."""
     from .camera import correct_wb
     from .vision import detect_blocks
 
@@ -144,13 +160,14 @@ def detect_block_pose(cap, gains, color, calib, n_frames=15):
         if not ok:
             continue
         frame = correct_wb(frame, gains)
-        blocks = detect_blocks(frame, color)
-        if len(blocks) == 1:
-            poses.append(calib.block_pose(blocks[0]))
+        found = [(b, calib.block_pose(b)) for b in detect_blocks(frame, color)]
+        found = [(b, pose) for b, pose in found if in_work_area(calib, pose[0], pose[1])]
+        if len(found) == 1:
+            poses.append(found[0][1])
         if len(poses) >= n_frames:
             break
     if len(poses) < n_frames // 2:
-        return None, frame, f"'{color}' 블록이 정확히 1개 보이지 않음"
+        return None, frame, f"작업 영역에 '{color}' 블록이 정확히 1개 보이지 않음 (0개이거나 2개 이상)"
     P = np.asarray(poses)
     yaw = np.rad2deg(np.arctan2(np.sin(np.deg2rad(4 * P[:, 3])).mean(), np.cos(np.deg2rad(4 * P[:, 3])).mean()) / 4)
     pose = (*P[:, :3].mean(axis=0), float(yaw))
