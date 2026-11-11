@@ -47,8 +47,9 @@ class Arm:
         act["gripper.pos"] = float(gripper)
         self.robot.send_action(act)
 
-    def send_action(self, action: dict) -> None:
-        self.robot.send_action(action)
+    def send_action(self, action: dict) -> dict:
+        """LeRobot이 실제로 보낸 값을 돌려준다(한 번에 max_step_deg 넘게 움직이는 명령은 잘린다)."""
+        return self.robot.send_action(action)
 
     # ---------- 이동 ----------
     def move_joints(self, q_target, gripper: float | None = None, speed_dps: float = 40.0,
