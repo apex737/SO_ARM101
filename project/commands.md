@@ -180,9 +180,11 @@ python -m kitbot_exec.approach --color purple --handoff-clear 15 --align-leader 
 S05 시연 녹화 도구. 에피소드마다 접근(흔들기 + 하강)과 리더암 자동 맞춤을 한 뒤 원격 조종을 녹화하고, LeRobot 데이터셋으로 저장한다. 저장한 데이터셋은 6절 `lerobot-train`으로 바로 학습한다.
 
 ```bash
-python -m kitbot_exec.record_act --repo-id local/kitbot_act_v1 --episodes 10 --color purple   # 처음 (집을 색 지정)
-python -m kitbot_exec.record_act --repo-id local/kitbot_act_v1 --episodes 10 --resume     # 같은 데이터셋에 이어서
-python -m kitbot_exec.record_act --repo-id local/kitbot_act_v1 --episodes 10 --resume --jitter-prob 0.5 --jitter-mm 10 --jitter-deg 10
+python -m kitbot_exec.record_act --repo-id local/kitbot_act_test --episodes 2 --color purple --step   # 맨 처음 시험 (본 데이터와 분리)
+# 본 녹화: 50개 = 안 흔듦 25 + 흔듦 25, 25개마다 쉬는 시간. 끊기면 같은 명령을 다시 치면 이어서 남은 만큼만
+python -m kitbot_exec.record_act --repo-id local/kitbot_act_v1 --goal 50 --pause-every 25 --color purple
+# 오늘은 25개만, 나머지는 다음에 (같은 명령 다시)
+python -m kitbot_exec.record_act --repo-id local/kitbot_act_v1 --goal 50 --episodes 25 --color purple
 ```
 
 **에피소드 하나의 순서**
@@ -194,32 +196,114 @@ python -m kitbot_exec.record_act --repo-id local/kitbot_act_v1 --episodes 10 --r
 2. 자동: HOME → 위 카메라로 블록 찾기 → 흔든 목표로 40mm 접근 → 블록 윗면 위 15mm까지 수직 하강.
 3. 자동 인계 판단: 관절 오차 4° 이하 + 손목 카메라에 블록 보임. 아니면 그 에피소드를 건너뛴다.
 4. 리더암 자동 맞춤: **리더암이 스스로 움직인다(손 치우기)** → "리더암을 손으로 잡으세요" → 잡고 Enter → 힘이 풀린다.
+   **손 맞춤** (팔로워는 그 자리에 멈춰 있음): 관절별로 "리더암을 더 움직여야 할 양(팔로워 − 리더)"이 실시간으로 나온다.
+   ```
+   pan  +0.4  lift  -1.2  elbow  +4.1* wflex  +0.3  roll  -2.9  grip  +1.0   (* = 더 맞추기)
+   ```
+   `*` 표시가 모두 사라지면 "→ 맞음, Enter = 녹화 시작". 숫자가 줄어드는 쪽으로 리더암을 움직이면 된다.
+
+| 키 (Enter 없이 바로) | 동작 |
+|---|---|
+| `Enter` 또는 스페이스 | 녹화 시작 (모든 관절이 허용 범위 안일 때만) |
+| `f` | 허용 범위를 넘은 채로 그래도 시작 |
+| `a` | 리더암 자동 맞춤 다시 |
+| `s` | 이 에피소드 건너뛰기 (팔로워 HOME) |
+
+   키를 누르려고 리더암에서 손을 떼면 리더암이 처질 수 있다. 한 손으로 리더암을 받친 채 누르거나, `--auto-start-s 1`(허용 범위 안을 1초 유지하면 자동 시작)을 쓴다.
 5. **녹화 중**: 리더암으로 보정 → 집기 → 바구니 위에서 놓기 → HOME 자세. 키(터미널이 아니어도 됨):
 
 | 키 | 동작 |
 |---|---|
 | `n` 또는 `→` | 이번 에피소드 끝내고 저장 |
 | `r` 또는 `←` | 이번 에피소드 버리고 다시 (실패한 시연) |
-| `q` 또는 `Esc` | 이번 에피소드 저장하고 전체 종료 |
+| `q` 또는 `Esc` | 이번 에피소드 저장하고 전체 종료. HOME으로 간 뒤 한 번 더 묻는다(Enter = 종료, `c` = 계속) |
 
    `--episode-s`(기본 30초)가 지나면 자동으로 끝내고 저장한다.
+   녹화 중 누른 키는 녹화가 끝나면 터미널 입력에서 지운다(다음 질문의 답으로 들어가지 않게). 끝날 때 "끝난 이유"를 출력한다.
 6. 자동: 팔로워를 HOME으로 (녹화 밖) → 1로.
 
 | 옵션 | 기본 | 뜻 |
 |---|---|---|
 | `--color` | purple | 집을 블록 색(시작 값). 에피소드마다 바꿀 수 있음 |
-| `--jitter-mm`, `--jitter-deg` | 15, 15 | 접근 목표 흔들기 반지름[mm]·각도[°] |
-| `--jitter-prob` | 1.0 | 에피소드마다 흔들 확률. 0.5면 절반은 CV 접근 그대로 |
+| `--jitter-mm`, `--jitter-deg` | 10, 10 | 접근 목표 흔들기 반지름[mm]·각도[°] (S05 D03) |
+| `--goal` | 없음 | 데이터셋 전체 목표 개수. 다 차면 멈추고, 이미 차 있으면 장비를 켜지 않고 끝 |
+| `--episodes` | 목표까지 (목표 없으면 10) | 이번에 저장할 개수 |
+| `--pause-every` | 0 | 이번에 이만큼 저장할 때마다 쉬는 시간(Enter = 계속, q = 끝) |
+| `--jitter-mode` | balanced | 저장된 에피소드 기준으로 흔듦·안 흔듦 중 적은 쪽을 고른다 → 몇 번에 나눠도, 실패·버림이 있어도 차이 1 이하. `random`이면 `--jitter-prob` 확률 |
 | `--handoff-clear` | 15 | 넘기는 높이(블록 윗면 위, 명령). 0이면 40mm에서 넘김 |
 | `--max-arrival-deg` | 4 | 인계 판단 관절 오차 한도 |
 | `--leader-torque` | 400 | 리더암 자동 맞춤 때 서보 힘(0~1000) |
-| `--max-leader-gap` | 5 | 리더암 힘 푼 뒤 차이가 이보다 크면 녹화 전에 묻는다 |
+| `--start-gap` | 3 | 손 맞춤: 팔 관절 리더−팔로워 차이 허용[°]. 이 안이어야 Enter로 시작 |
+| `--start-grip-gap` | 3 | 손 맞춤: 그리퍼 차이 허용(0~100 값) |
+| `--auto-start-s` | 0 (끔) | 손 맞춤: 허용 범위 안을 이 시간[초] 유지하면 키 없이 시작 |
 | `--step` | 꺼짐 | 이동 전마다 Enter |
 
-- 저장 위치: `~/.cache/huggingface/lerobot/local/kitbot_act_v1/`. 에피소드별 시작 조건(블록 위치, 흔든 값, 인계 판단, 리더암 차이, 녹화 Hz): 같은 폴더의 `kitbot_episode_meta.jsonl`.
+- **이어서 녹화는 자동**: 데이터셋 폴더가 이미 있으면 `--resume` 없이도 이어서 쌓는다(가짜 데이터로 만들기 1 → 이어서 2 → 다시 읽기 3개 확인, 2026-11-11). 처음부터 다시 하려면 폴더를 지우거나 새 이름.
+- 흔들기 설정은 한 데이터셋 안에서 바꾸지 않는다. 기존 에피소드와 흔들기 폭·넘기는 높이가 다르면 장비를 켜기 전에 거부한다. 바꾸려면 새 이름(`kitbot_act_v2`)으로.
+- 입력 칸에 다음 에피소드가 흔듦인지 안 흔듦인지와 진행 상황(예: `데이터셋 27/50 (흔듦 13 · 안 흔듦 14)`)이 나온다.
+
+- 저장 위치: `~/.cache/huggingface/lerobot/local/kitbot_act_v1/`. 에피소드별 시작 조건(블록 위치, 흔든 값, 인계 판단, 리더암 차이: 자동 맞춤 뒤·녹화 시작 때·손 맞춤 시간, 녹화 Hz): 같은 폴더의 `kitbot_episode_meta.jsonl`.
 - 출력의 "평균 ○○Hz"가 27 아래로 자주 나오면 알려 줄 것(영상과 동작 시간이 어긋남).
-- 영상은 camera_settings.json 고정값 + 색 보정을 적용한 RGB다. 학습한 정책을 실행할 때도 같은 처리를 써야 한다(S05-4에서 같은 카메라 코드 사용).
-- 학습: 6절 명령에서 `--dataset.repo_id=local/kitbot_act_v1`, `--output_dir=outputs/train/act_kitbot_v1`, `--job_name=act_kitbot_v1`로 바꿔 실행.
+- HOME에 도착하면 **1초쯤 뒤 바로 `n`**. 시험 녹화 ep0은 HOME에서 9초를 그냥 서 있어 전체의 40%가 정지 화면이었다(학습 시간 낭비). 실행 도구는 HOME 근처 1초면 끝으로 본다.
+- 블록을 쥐고 있는 동안 그리퍼 명령이 '블록 폭 − 8'로 잘리는 것은 정상이다(팔로워는 블록에서 멈추고 리더는 더 닫힘). "잘림" 경고는 팔 관절만 센다.
+- 영상은 camera_settings.json 고정값 + 색 보정을 적용한 RGB다. 학습한 정책을 실행할 때도 같은 처리를 써야 한다 → 2-6 `run_act.py`가 같은 카메라 코드를 쓴다.
+- 학습: 6절 "이 과제 데이터셋" 명령.
+
+**녹화 영상 확인**
+```bash
+# ① 이 PC에서 바로 (올리지 않음, Rerun 창)
+lerobot-dataset-viz --repo-id local/kitbot_act_test --episode-index 0
+# ② Hugging Face에 비공개로 올려 웹에서 (hf auth whoami로 로그인 확인. images/는 임시 사진이라 뺀다)
+hf upload apex737/kitbot_act_test ~/.cache/huggingface/lerobot/local/kitbot_act_test . --repo-type dataset --private --exclude "images/*"
+hf repo tag create apex737/kitbot_act_test v3.0 --repo-type dataset   # LeRobot이 버전 태그로 데이터셋을 찾는다
+```
+- ②는 웹 페이지 `huggingface.co/datasets/apex737/kitbot_act_test` → Files → `videos/` 아래 mp4를 누르면 재생된다.
+- LeRobot 데이터셋 보기 페이지(`huggingface.co/spaces/lerobot/visualize_dataset`)는 관절 그래프와 영상을 함께 보여 주지만, 공개 데이터셋만 읽는 것으로 안다(확인 전). 공개로 바꾸면 작업 공간 영상이 누구에게나 보인다.
+- 이어서 녹화한 뒤에는 ②의 `hf upload`를 다시 하면 바뀐 파일만 올라간다.
+
+## 2-6. 학습한 ACT 정책 실행·평가 (`run_act.py`, conda lerobot, project/src에서)
+S05-4 실행 도구. 녹화(2-5)와 같은 접근·인계 판단·카메라 처리를 거친 뒤 정책이 팔을 움직이고, 끝·실패를 스스로 판정해 멈춘다. 7절 `lerobot-rollout`은 이 과제에 쓰지 않는다(접근 단계가 없고, 카메라 색 보정이 녹화 때와 다름).
+
+```bash
+python -m kitbot_exec.run_act --policy outputs/train/act_kitbot_v1/checkpoints/last/pretrained_model --color purple --step --trials 3   # 처음
+python -m kitbot_exec.run_act --policy outputs/train/act_kitbot_v1/checkpoints/last/pretrained_model --name eval_v1 --trials 18         # 평가 18곳
+```
+
+**시행 하나의 순서**
+1. "블록을 놓고 Enter" (색 이름 = 색 바꾸기, `q` = 끝).
+2. 자동: HOME → 접근 → 블록 윗면 위 15mm까지 하강 (녹화와 같음, 흔들기는 기본 0) → 인계 판단(관절 오차 4° 이하 + 손목 카메라에 블록 보임).
+3. 정책 첫 명령과 지금 자세 차이를 보여 준다. 10°보다 크면 실행할지 묻는다(학습이 덜 됐거나 입력이 녹화 때와 다를 때).
+4. **정책 실행**: 손을 전원 가까이. `n` / `q` / `Esc` / `→` = 바로 멈춤 (`q`·`Esc`는 이번 시행 뒤 전체 종료할지 묻는다). 아래 중 하나면 스스로 멈춘다.
+
+| 판정 | 뜻 | 멈춘 뒤 |
+|---|---|---|
+| HOME 도착 | HOME 자세 8° 안에 1초 머묾 = 정상 끝 | 그대로 |
+| 빈손 | 닫으라는 명령인데 끝까지 닫힘(블록 없음) 0.5초 | 그리퍼 열고 HOME |
+| 옮기다 떨어뜨림 | 잡은 뒤 놓기 전에 끝까지 닫힘 | 그리퍼 열고 HOME |
+| 테이블 아래 명령 | 명령한 그리퍼 끝이 테이블보다 10mm 넘게 아래 → 그 명령은 보내지 않음 | Enter 뒤 HOME |
+| 시간 초과 | 30초 | Enter 뒤 HOME (쥐고 있으면 HOME에서 놓음) |
+
+5. 사람 판정: `s` = 바구니 안, `f` = 실패. 뒤에 메모를 붙일 수 있다(예: `f 바구니 테두리에 걸림`).
+6. 끝에 "성공 ○/○" 출력.
+
+| 옵션 | 기본 | 뜻 |
+|---|---|---|
+| `--policy` | (필수) | `pretrained_model` 폴더 |
+| `--name` | run_날짜_시각 | 기록 파일 `var/act_runs/<name>.jsonl` |
+| `--trials` | 10 | 시행 수 |
+| `--max-step-deg` | 8 | 한 프레임(1/30초)에 관절이 움직일 수 있는 최대[°]. 녹화와 같게 둔다. 낮추면 블록을 쥐는 힘(리더가 블록 폭보다 8 더 닫힌 값)과 돌아가는 속도가 시연과 달라진다 |
+| `--max-s` | 30 | 정책 실행 최대 시간[초] |
+| `--floor-mm` | 10 | 테이블 아래 명령 한도[mm] |
+| `--home-tol`, `--home-hold-s` | 8, 1 | HOME 도착 판정 |
+| `--n-action-steps` | 학습값 | 한 번 예측한 동작 묶음에서 몇 개 실행 후 다시 예측 |
+| `--temporal-ensemble` | 꺼짐 | 예: `0.01`. 매 프레임 예측하고 겹친 예측을 평균(ACT 논문 방식). 동작이 떨리면 시험 |
+| `--jitter-mm`, `--jitter-deg` | 0, 0 | 접근 흔들기. 평가는 0, 어긋남에 강한지 볼 때만 |
+| `--step` | 꺼짐 | 이동·정책 시작 전마다 Enter |
+
+- 기록 한 줄: 정책 경로, 블록 자리와 구역(평가 격자 안 / 보정점 범위 안 / 밖), 접근 기록, 자동 판정(멈춘 이유, 잡은 시각, 놓은 시각·자세, 명령 끝 최저 높이, Hz, 제한 걸린 프레임), 사람 판정.
+- "제한에 걸림" 프레임이 많으면 정책이 급하게 움직이려 한 것. "늦음" 프레임이 많으면 GPU 계산이 30Hz를 못 따라간 것(알려 줄 것).
+- 위 카메라를 뺀 정책(`lerobot-edit-dataset ... remove_feature`로 만든 데이터셋으로 학습)도 그대로 실행된다. 정책이 받는 입력만 넘긴다.
+- 정책 불러오기·한 단계 실행은 학습 안 한 작은 ACT로 확인했다(2026-11-11, GPU 한 단계 약 3ms, 새 묶음 예측 때 최대 25ms). 학습한 정책·실물로는 아직 실행하지 않았다.
 
 ## 3. 캘리브레이션 (`conda activate lerobot`)
 
@@ -300,6 +384,20 @@ lerobot-train \
   --resume=true
 ```
 
+**이 과제 데이터셋 (2-5에서 녹화, project/src에서 실행)**
+
+```bash
+# 흐름 점검용 짧은 학습 (시연 10개, 전체 흐름이 도는지만 봄)
+lerobot-train --dataset.repo_id=local/kitbot_act_v1 --policy.type=act --policy.device=cuda --policy.push_to_hub=false \
+  --steps=5000 --save_freq=5000 --output_dir=outputs/train/act_kitbot_v1_check --job_name=act_kitbot_v1_check
+# 본 학습 (시연 50개 뒤, 기본 100,000단계)
+lerobot-train --dataset.repo_id=local/kitbot_act_v1 --policy.type=act --policy.device=cuda --policy.push_to_hub=false \
+  --output_dir=outputs/train/act_kitbot_v1 --job_name=act_kitbot_v1
+```
+
+- 실행은 2-6 `run_act.py --policy outputs/train/<job>/checkpoints/last/pretrained_model`.
+- `--output_dir`이 이미 있으면 학습이 거부된다. 다시 하려면 다른 이름을 쓴다.
+
 - 체크포인트: `outputs/train/<job>/checkpoints/<step>/pretrained_model/`, 마지막은 `checkpoints/last/`.
 - GPU 사용 확인: 학습 중 다른 터미널에서 `nvidia-smi`. RTX 4050 6GB라 메모리가 부족하면 `--batch_size`를 줄인다.
 
@@ -318,3 +416,4 @@ lerobot-rollout \
 - 카메라 이름(wrist/top)과 해상도는 데이터를 수집할 때와 똑같아야 한다.
 - 처음에는 팔 주변을 비우고 손을 전원 가까이에 둔다. 멈출 때는 Ctrl+C.
 - 이 절은 공식 문서 예시를 이 PC 값으로 바꾼 것이다. 이 PC에서 아직 실행하지 않았다.
+- **이 과제(S05)의 정책은 이 명령 대신 2-6 `run_act.py`로 실행한다.** 이 명령에는 CV 접근 단계가 없고 카메라 색 보정이 없어 녹화 때 영상과 달라진다.

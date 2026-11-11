@@ -20,6 +20,8 @@ desktop.ini
 *.db-wal
 *.db-shm
 project/src/var/
+# lerobot-train 체크포인트 (크다, 다시 학습하면 생김)
+outputs/
 
 # 내려받는 모델 파일 (MediaPipe 등, 실습 코드가 받는 위치에 다시 받으면 됨)
 *.task
