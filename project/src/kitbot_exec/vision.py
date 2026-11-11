@@ -105,6 +105,13 @@ def draw_blocks(bgr: np.ndarray, blocks: list[Block], label: str = "") -> np.nda
         cv2.polylines(out, [b.corners_px.astype(np.int32)], True, (255, 0, 0), 2)
         u, v = int(round(b.center_px[0])), int(round(b.center_px[1]))
         cv2.drawMarker(out, (u, v), (0, 0, 255), cv2.MARKER_CROSS, 12, 2)
-        cv2.putText(out, f"{label}{i} ({u},{v}) {b.angle_px_deg:+.1f}deg", (u + 8, v - 8),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
+        put_label(out, f"{label}{i} ({u},{v}) {b.angle_px_deg:+.1f}deg", (u + 8, v - 8), 0.45)
     return out
+
+
+def put_label(img: np.ndarray, text: str, org, scale: float = 0.55, color=(0, 255, 0)) -> None:
+    """밝은 배경에서도 읽히게: 검은 상자 위에 밝은 초록 글자."""
+    (w, h), base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)
+    x, y = int(org[0]), int(org[1])
+    cv2.rectangle(img, (x - 3, y - h - 4), (x + w + 3, y + base + 2), (0, 0, 0), -1)
+    cv2.putText(img, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 1, cv2.LINE_AA)

@@ -5,7 +5,7 @@
     python -m kitbot_exec.snapshot list           # 저장된 상태 목록
     python -m kitbot_exec.snapshot restore 폴더명  # 그 상태로 되돌림 (지금 파일은 덮어쓰기 전에 var/before_restore/에 백업)
 
-저장하는 것: 화면→로봇 보정(calib_top.json, 보정점), 접근 보정 기록, teach 자세(poses.json),
+저장하는 것: 화면→로봇 보정(calib_top.json, 보정점), 접근 보정 기록, 손목 사진 기준(wrist_ref.json), teach 자세(poses.json),
 카메라 고정값(camera_settings.json), LeRobot 팔 캘리브레이션 2개(팔로워·리더).
 카메라 장대·바구니·로봇 위치가 그대로일 때만 복원한 값이 맞는다.
 """
@@ -26,6 +26,8 @@ FILES = {  # 스냅샷 안 이름 → 실제 위치
     "calib_top.json": PKG / "calib_top.json",
     "calib_pairs.json": SRC / "var" / "calib_pairs.json",
     "approach_corrections.json": SRC / "var" / "approach_corrections.json",
+    "wrist_ref.json": SRC / "var" / "wrist_ref.json",                       # 손목 사진 기준 (S02 실험 2·3-1)
+    "approach_corrections_wrist.json": SRC / "var" / "approach_corrections_wrist.json",
     "poses.json": PKG / "poses.json",
     "camera_settings.json": PKG / "camera_settings.json",
     "lerobot_follower_my_follower_arm.json": LEROBOT_CAL / "robots/so_follower/my_follower_arm.json",

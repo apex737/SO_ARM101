@@ -1,0 +1,16 @@
+{
+ "saved_at": "2026-11-11 12:25:36",
+ "files": [
+  "calib_top.json",
+  "calib_pairs.json",
+  "approach_corrections.json",
+  "wrist_ref.json",
+  "poses.json",
+  "camera_settings.json",
+  "lerobot_follower_my_follower_arm.json",
+  "lerobot_leader_my_leader_arm.json"
+ ],
+ "missing": [
+  "approach_corrections_wrist.json"
+ ]
+}

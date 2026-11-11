@@ -5,6 +5,7 @@
     python -m kitbot_exec.exp_s02 wristref                      # 실험 2: 손목 카메라 기준 만들기 (리더암으로 블록 한 번 잡기)
     python -m kitbot_exec.exp_s02 approach --name middle_0 --repeat 3 --step   # 실험 3·5: 자동 접근 + 사진 측정
     python -m kitbot_exec.exp_s02 approach --name c01 --collect --corr none    # 실험 4: 보정 기록을 자동으로 모으기
+    python -m kitbot_exec.exp_s02 straddle --name s01 --step                    # 손목 기준 확인: 블록 윗면 바로 위까지 내려가 멈춤
     python -m kitbot_exec.exp_s02 report                        # 결과 요약 → 실행 폴더의 report.json
 
 모든 기록은 실행 폴더(--run, 기본 ../evidence/<오늘>_s02)에 trials.jsonl·table_touch.json·wrist_ref.json으로 남는다.
@@ -295,6 +296,11 @@ def cmd_wristref(args):
         yaw0 = kin._tool_yaw(q0)
         z_top = float(ctx.calib.z_at([[x, y]])[0])
         z_min = ctx.z_table(x, y) + p.table_margin_mm
+        # 지금 실제로 블록을 쥐고 있는 자세는 안전하다. 모델 높이가 위치마다 몇 mm 다르므로(테이블 짚기)
+        # 시작 높이가 예상 하한보다 낮으면 하한을 시작 높이 아래 1mm로 내린다. 여기서는 위로만 움직인다.
+        if tip0[2] - 1.0 < z_min:
+            print(f"  시작 높이 {tip0[2]:.1f}mm가 예상 하한 {z_min:.1f}mm보다 낮음 → 하한을 {tip0[2] - 1.0:.1f}mm로 (위로만 움직임)")
+            z_min = float(tip0[2]) - 1.0
         z_pre = z_top + p.approach_mm
         span = g_block - ctx.g_closed
         open_est = p.block_mm * (ctx.g_open - ctx.g_closed) / span if abs(span) > 1e-6 else float("nan")
@@ -325,7 +331,11 @@ def cmd_wristref(args):
             if obs is None:
                 save_frame(frames[-1] if frames else None, f"wristref_fail_{label}")
                 raise SystemExit(f"{label}: 손목 사진에서 블록을 못 찾음. view_blocks --role wrist로 색·면적 확인")
+            shots[label] = {"px": _r(obs.center_px, 1), "size_px": round(obs.size_px, 1),
+                            "angle_deg": round(obs.angle_deg, 1), "frame": save_frame(frames[-1], f"wristref_{label}")}
             return qq, obs, frames[-1]
+
+        shots = {}
 
         q_c = arm.read()[0]
         ctx.step("기준 사진 (접근 높이)")
@@ -340,6 +350,10 @@ def cmd_wristref(args):
             moves.append(wm.robot_to_tool(Rc, jaw_center_xy(kin, qq, p.jaw_center_mm) - jaw_c))  # 실제 이동(모델)
             dpx.append(np.asarray(obs.center_px) - np.asarray(ref_obs.center_px))
         J, rms = wm.fit_J(moves, dpx)
+        resid = np.asarray(dpx) - np.asarray(moves) @ J.T
+        print("  이동별: 그리퍼 이동(mm) → 블록 픽셀 이동, 직선에서 벗어난 양(px)")
+        for mv, dp, rs in zip(moves, dpx, resid):
+            print(f"    ({mv[0]:+6.1f},{mv[1]:+6.1f}) → ({dp[0]:+6.1f},{dp[1]:+6.1f})  벗어남 {np.linalg.norm(rs):.1f}")
         ctx.step("각도 민감도: 손목 +10°")
         qq, obs_yaw, _ = at(dyaw=10.0, label="yaw+10")
         k_yaw = wm.yaw_gain(ref_obs.angle_deg, obs_yaw.angle_deg, kin._tool_yaw(q_c), kin._tool_yaw(qq))
@@ -347,12 +361,16 @@ def cmd_wristref(args):
         qq, obs_up, _ = at(dz=20.0, label="up20")
         dz_real = float(kin.fk(qq)[0][2] - kin.fk(q_c)[0][2])
         d_ref = wm.d_from_two_heights(ref_obs.size_px, obs_up.size_px, dz_real)
-        at(label="back")
+        _, obs_back, _ = at(label="back")
+        back_px = float(np.linalg.norm(np.asarray(obs_back.center_px) - np.asarray(ref_obs.center_px)))
+        print(f"  기준 자리로 돌아왔을 때 블록 픽셀 차이 {back_px:.1f}px (크면 서보 유격·블록 밀림)")
         ref = wm.WristRef(ref_obs.center_px, ref_obs.angle_deg, ref_obs.size_px, np.round(J, 4).tolist(),
                           round(k_yaw, 3), round(d_ref, 1),
                           {"time": time.strftime("%Y-%m-%d %H:%M:%S"), "J_fit_rms_px": round(rms, 2),
                            "block_xy_model": _r([x, y], 1), "approach_mm": p.approach_mm,
                            "gripper_open_est_mm": round(open_est, 1), "gripper_block_value": round(g_block, 1),
+                           "moves_tool_mm": _r(moves, 2), "moves_px": _r(dpx, 1), "resid_px": _r(resid, 1),
+                           "back_minus_ref_px": round(back_px, 1), "shots": shots,
                            "frame": save_frame(frame, "wristref")})
         if wm.REF_FILE.exists():
             old = wm.WristRef.load()
@@ -495,6 +513,87 @@ def cmd_approach(args):
     print("\n기록:", ctx.run / "trials.jsonl")
 
 
+# ---------- 손목 기준 확인: 블록 바로 위까지 내려가기 ----------
+def cmd_straddle(args):
+    """보정 없이 접근 → 벌린 부리 끝이 블록 윗면 바로 위(명령 기준 --clear mm)까지 수직으로 내려가 멈춤.
+    사람은 앞에서 두 부리와 블록 사이 틈을 보고, 손목 사진은 부리 끝과 블록을 거의 같은 거리에서 함께 찍는다.
+    블록에 닿지 않는 높이까지만 내려간다. 서보가 약 6~7mm 덜 올라가(처져) 있으므로 실제 틈은 명령보다 작다."""
+    ctx = Ctx(args, need_top=True, need_wrist=True)
+    p, kin, arm = ctx.p, ctx.kin, ctx.arm
+    ref = wm.WristRef.load() if wm.REF_FILE.exists() else None
+    rec = {"name": args.name, "time": time.strftime("%Y-%m-%d %H:%M:%S"), "kind": "straddle",
+           "clear_cmd_mm": args.clear, "result": "started"}
+    low_done = False
+    try:
+        ctx.step("HOME")
+        arm.move_joints(ctx.q_home, ctx.g_open, p.joint_speed_dps)
+        grab(ctx.top, ctx.top_gains, 0)
+        pose, _, note = detect_block_pose(ctx.top, ctx.top_gains, args.color, ctx.calib)
+        rec["top_note"] = note
+        if pose is None:
+            rec["result"] = "no_block"
+            print("블록을 못 찾음:", note)
+            return
+        x, y, z_top, yaw = pose
+        rec.update(block_camera=_r([x, y, z_top, yaw], 1))
+        plan = plan_pick(kin, x, y, z_top, yaw, ctx.q_home, p)
+        if not plan.ok:
+            rec.update(result="plan_failed", plan_reason=plan.reason)
+            print("계획 실패:", plan.reason)
+            return
+        roll = float(plan.q_pre[4])
+        z_pre = float(kin.fk(plan.q_pre)[0][2])
+        z_low = z_top + args.clear
+        z_min = ctx.z_table(x, y) + p.table_margin_mm
+        path = line_path(kin, x, y, yaw, z_pre, z_low, plan.q_pre, p, z_min, roll)
+
+        ctx.step(f"블록 위 {p.approach_mm:.0f}mm로 접근 (보정 없음)")
+        arm.move_joints(plan.q_pre, ctx.g_open, p.joint_speed_dps)
+        ctx.step(f"수직으로 내려가기: 부리 끝이 블록 윗면 위 {args.clear:.0f}mm (명령 기준, 실제는 몇 mm 더 낮을 수 있음)")
+        arm.follow(path, ctx.g_open)
+        low_done = True
+        time.sleep(0.5)
+        q_read, _ = arm.read()
+        q_t = np.asarray(path[-1], float)
+        tip_t, _ = kin.fk(q_t)
+        tip_r, R = kin.fk(q_read)
+        rec["diag_low"] = {
+            "target_minus_read_deg": _r(q_t - q_read),
+            "jaw_target_minus_read_xy_mm_model": _r(jaw_center_xy(kin, q_t, p.jaw_center_mm)
+                                                    - jaw_center_xy(kin, q_read, p.jaw_center_mm), 1),
+            "tip_z_cmd_mm": round(float(tip_t[2]), 1), "tip_z_read_mm": round(float(tip_r[2]), 1),
+            "block_top_z_mm": round(float(z_top), 1),
+            "clear_read_mm_model": round(float(tip_r[2] - z_top), 1)}
+        frames = grab(ctx.wrist, ctx.wrist_gains, 12)
+        rec["wrist_frame"] = save_frame(frames[-1] if frames else None, f"straddle_{args.name}")
+        obs = wm.observe(frames, args.color)
+        if obs is not None:
+            rec["wrist_obs"] = obs.as_dict()
+        d = rec["diag_low"]
+        print(f"  관절 (목표 − 실제) {d['target_minus_read_deg']}°, 부리 끝 높이 명령 {d['tip_z_cmd_mm']} → 실제(모델) {d['tip_z_read_mm']} mm,"
+              f" 블록 윗면 {d['block_top_z_mm']} mm → 틈(모델) {d['clear_read_mm_model']} mm")
+        print("  손목 사진:", rec["wrist_frame"])
+        print("\n[눈으로 확인] 두 부리가 나란히 보이는 쪽(그리퍼 넓은 면 정면)에서 보세요.")
+        print("  블록에 더 가까운 손가락:  f = 고정(빨강),  m = 움직이는(검정),  c = 비슷함(가운데)")
+        print("  뒤에 대략 틈을 mm로 적어도 됨: 가까운 쪽 틈, 먼 쪽 틈. 예) m 1 15  (검정 쪽 1mm, 빨강 쪽 15mm)")
+        ans = input("  > ").strip()
+        rec["human"] = ans
+        rec["result"] = "checked"
+        if ref is not None:
+            rec["wrist_ref_time"] = ref.meta.get("time")
+    finally:
+        try:
+            if low_done:
+                ctx.step("다시 접근 높이로 올라가기")
+                arm.follow(path[::-1], ctx.g_open)
+            arm.move_joints(ctx.q_home, ctx.g_open, p.joint_speed_dps)
+        except Exception as e:
+            print("복귀 실패:", e)
+        append_jsonl(ctx.run / "straddle.jsonl", rec)
+        print("기록:", ctx.run / "straddle.jsonl")
+        ctx.close()
+
+
 # ---------- 요약 ----------
 def cmd_report(args):
     run = Path(args.run) if args.run else default_run_dir()
@@ -528,13 +627,18 @@ def main(argv=None):
     a.add_argument("--step", action="store_true")
     a.add_argument("--corr", help="보정 파일 경로, 또는 none (기본 var/approach_corrections.json)")
     a.add_argument("--collect", action="store_true", help="손목 사진으로 잰 실제 위치를 var/approach_corrections_wrist.json에 추가")
+    st = sub.add_parser("straddle", help="손목 기준 확인: 보정 없이 접근 후 블록 윗면 바로 위까지 내려가 멈춤")
+    st.add_argument("--name", required=True)
+    st.add_argument("--clear", type=float, default=15.0,
+                    help="명령 기준 부리 끝 ~ 블록 윗면 높이 [mm]. 서보 처짐(약 6~7mm) 때문에 실제는 더 낮음. 기본 15")
+    st.add_argument("--step", action="store_true")
     r = sub.add_parser("report")
     r.add_argument("--prefix", nargs="*", help="이 이름으로 시작하는 시행만 (예: grid)")
     r.add_argument("--tol-mm", type=float, default=10.0)
     r.add_argument("--tol-yaw", type=float, default=10.0)
     args = ap.parse_args(argv)
     {"check": cmd_check, "table": cmd_table, "wristref": cmd_wristref,
-     "approach": cmd_approach, "report": cmd_report}[args.cmd](args)
+     "approach": cmd_approach, "straddle": cmd_straddle, "report": cmd_report}[args.cmd](args)
 
 
 if __name__ == "__main__":

@@ -19,9 +19,39 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .vision import BlockFilter, HSV_RANGES, clean_mask, color_mask, blocks_in_mask, draw_blocks
+from .vision import BlockFilter, HSV_RANGES, clean_mask, color_mask, blocks_in_mask, draw_blocks, put_label
 
 FRAMES_DIR = Path(__file__).resolve().parents[1] / "var" / "frames"
+
+# S02 5단계 평가 위치 (로봇 좌표 mm). 로봇 좌표: 원점 = 로봇 받침대 회전축, x = 어깨 회전 0°일 때 팔이 뻗는 방향,
+# y = 위에서 볼 때 x를 반시계로 90° 돌린 방향. 화면에서 어느 쪽인지는 --grid 화살표로 보인다.
+S02_GRID = {f"g{i + 1:02d}": (x, y) for i, (y, x) in enumerate((y, x) for y in (100, 160, 220) for x in (95, 120, 145))}
+
+
+def robot_to_px(calib, xy):
+    """로봇 좌표 (블록 윗면 높이) → 화면 픽셀 (보정 변환의 역)."""
+    pts = np.asarray(xy, float).reshape(-1, 1, 2)
+    return cv2.perspectiveTransform(pts, np.linalg.inv(calib.H)).reshape(-1, 2)
+
+
+def draw_grid(view, calib, block_xy=None):
+    """9개 평가 위치(초록 원)와 로봇 x·y 방향 화살표. 블록이 있으면 가장 가까운 위치까지 남은 거리를 돌려준다."""
+    names = list(S02_GRID)
+    px = robot_to_px(calib, [S02_GRID[n] for n in names])
+    for n, (u, v) in zip(names, px):
+        cv2.circle(view, (int(u), int(v)), 9, (0, 255, 0), 2)
+        cv2.putText(view, n, (int(u) + 10, int(v) + 18), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 120, 0), 2, cv2.LINE_AA)
+    o, ax, ay = robot_to_px(calib, [(120, 160), (160, 160), (120, 200)])
+    cv2.arrowedLine(view, tuple(map(int, o)), tuple(map(int, ax)), (0, 0, 255), 2, tipLength=0.25)
+    cv2.arrowedLine(view, tuple(map(int, o)), tuple(map(int, ay)), (255, 0, 0), 2, tipLength=0.25)
+    cv2.putText(view, "+x", tuple(map(int, ax + 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2, cv2.LINE_AA)
+    cv2.putText(view, "+y", tuple(map(int, ay + 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2, cv2.LINE_AA)
+    put_label(view, "close: click this window + q, or X button", (10, view.shape[0] - 10), 0.5, (0, 255, 255))
+    if block_xy is None:
+        return None
+    d = {n: np.subtract(S02_GRID[n], block_xy) for n in names}
+    n = min(d, key=lambda k: np.linalg.norm(d[k]))
+    return n, d[n]
 
 
 def main() -> None:
@@ -35,6 +65,7 @@ def main() -> None:
     ap.add_argument("--min-area", type=float, default=BlockFilter.min_area_px)
     ap.add_argument("--max-area", type=float, default=BlockFilter.max_area_px)
     ap.add_argument("--calib", help="calib.PixelToRobot.save()로 저장한 JSON (있으면 mm 표시)")
+    ap.add_argument("--grid", action="store_true", help="S02 평가 위치 9곳(g01~g09)과 로봇 x·y 방향을 화면에 표시 (--calib 필요)")
     args = ap.parse_args()
 
     flt = BlockFilter(min_area_px=args.min_area, max_area_px=args.max_area)
@@ -42,6 +73,8 @@ def main() -> None:
     if args.calib:
         from .calib import PixelToRobot
         calib = PixelToRobot.load(args.calib)
+    if args.grid and calib is None:
+        raise SystemExit("--grid에는 --calib이 필요합니다 (예: --calib kitbot_exec/calib_top.json)")
 
     cap = None
     still = None
@@ -89,16 +122,27 @@ def main() -> None:
                 if calib is not None:
                     x, y, z, yaw = calib.block_pose(b)
                     lines.append(f"robot x {x:.1f} y {y:.1f} z {z:.1f} mm  yaw {yaw:+.1f}deg")
+                    if args.grid:
+                        n, d = draw_grid(view, calib, (x, y))
+                        ok = "OK" if np.linalg.norm(d) <= 10 else "move"
+                        lines.append(f"nearest {n}: need x {d[0]:+.0f} y {d[1]:+.0f} mm  [{ok}]")
             else:
                 hist.clear()
+                if args.grid:
+                    draw_grid(view, calib)
             for i, t in enumerate(lines):
-                cv2.putText(view, t, (10, 22 + 20 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+                put_label(view, t, (10, 24 + 26 * i), 0.6)
 
             cv2.imshow("blocks", view)
             if show_mask:
                 cv2.imshow("mask", mask)
             key = cv2.waitKey(30 if still is not None else 1) & 0xFF
             if key == ord("q"):
+                break
+            try:  # 창의 X 버튼으로 닫아도 끝낸다
+                if cv2.getWindowProperty("blocks", cv2.WND_PROP_VISIBLE) < 1:
+                    break
+            except cv2.error:
                 break
             if key == ord("m"):
                 show_mask = not show_mask

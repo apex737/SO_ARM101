@@ -132,3 +132,33 @@ def test_report_cli(tmp_path, capsys):
     ex.main(["--run", str(tmp_path), "report"])
     out = json.loads((tmp_path / "report.json").read_text())
     assert out["approach"]["pass"] == "2/2" and out["approach"]["repeat"]["g1"]["spread_mm"] == 0.0
+
+
+def test_straddle_goes_down_records_and_returns_up(patched, monkeypatch, tmp_path):
+    # 내려간 경로를 거꾸로 올라온 뒤 HOME으로 가고, 사람 입력·높이 진단을 기록한다
+    class Arm(FakeArm):
+        def __init__(self):
+            super().__init__(np.zeros(5))
+            self.follows = []
+
+        def follow(self, path, g):
+            self.follows.append([np.asarray(q, float) for q in path])
+            self.q = np.asarray(path[-1], float)
+
+    ctx = make_ctx(np.zeros(5))
+    ctx.arm = Arm()
+    ctx.run = tmp_path
+    ctx.z_table = lambda x, y: 0.0
+    ctx.close = lambda: None
+    low = [np.array([20.0, 1.0, -5.0, 80.0, 10.0]), np.array([20.0, 1.0, -10.0, 80.0, 10.0])]
+    monkeypatch.setattr(ex, "Ctx", lambda *a, **k: ctx)
+    monkeypatch.setattr(ex, "line_path", lambda *a, **k: low)
+    monkeypatch.setattr(ex.wm, "REF_FILE", tmp_path / "no_ref.json")
+    monkeypatch.setattr("builtins.input", lambda *a: "g 3 15")
+    ex.cmd_straddle(SimpleNamespace(name="s01", clear=15.0, color="purple", step=False))
+    rec = ex.read_jsonl(tmp_path / "straddle.jsonl")[0]
+    assert rec["result"] == "checked" and rec["human"] == "g 3 15"
+    assert rec["diag_low"]["tip_z_cmd_mm"] == pytest.approx(40.0)          # FakeKin: z = 50 + q2
+    assert [len(f) for f in ctx.arm.follows] == [2, 2]
+    assert np.allclose(ctx.arm.follows[1][-1], low[0])                       # 거꾸로 올라옴
+    assert np.allclose(ctx.arm.moves[-1], np.zeros(5))                       # 마지막은 HOME

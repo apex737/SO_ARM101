@@ -1,0 +1,45 @@
+{
+  "_설명": "웹캠 고정 설정. by_path = 꽂은 USB 포트 기준 경로(두 웹캠 시리얼이 같아서 포트로 구분). 카메라를 다른 포트에 꽂으면 by_path를 고쳐야 한다. controls는 camera_lock tune이 채운다.",
+  "cameras": {
+    "top": {
+      "by_path": "pci-0000:00:14.0-usb-0:3.4.1:1.0-video-index0",
+      "controls": {
+        "power_line_frequency": 2,
+        "exposure_dynamic_framerate": 0,
+        "auto_exposure": 1,
+        "white_balance_automatic": 0,
+        "gain": 0,
+        "backlight_compensation": 0,
+        "exposure_time_absolute": 83,
+        "white_balance_temperature": 6200,
+        "brightness": 0
+      },
+      "tuned_at": "2026-11-10 11:31",
+      "software_wb_gains": [
+        1.389,
+        1.0,
+        1.421
+      ]
+    },
+    "wrist": {
+      "by_path": "pci-0000:00:14.0-usb-0:3.3:1.0-video-index0",
+      "controls": {
+        "power_line_frequency": 2,
+        "exposure_dynamic_framerate": 0,
+        "auto_exposure": 1,
+        "white_balance_automatic": 0,
+        "gain": 0,
+        "backlight_compensation": 0,
+        "exposure_time_absolute": 83,
+        "white_balance_temperature": 6200,
+        "brightness": 0
+      },
+      "tuned_at": "2026-11-10 11:31",
+      "software_wb_gains": [
+        1.422,
+        1.0,
+        1.434
+      ]
+    }
+  }
+}
