@@ -27,7 +27,7 @@ import numpy as np
 
 from .correction import Correction, load_samples, wrap90
 from .kinematics import ARM_JOINTS
-from .pick import CALIB, PickParams, detect_block_pose, plan_pick
+from .pick import CALIB, PickParams, detect_block_pose, outside_mm, plan_pick
 
 SRC = Path(__file__).resolve().parents[1]
 LOG = SRC / "var" / "approach_log.jsonl"
@@ -105,7 +105,7 @@ def jitter_target(rng, x, y, yaw, jitter_mm: float, jitter_deg: float):
 
 # ---------- 접근 ----------
 def approach_block(arm, cap, gains, kin, calib, poses, correction, *, color="purple", step=None,
-                   jitter_mm=0.0, jitter_deg=0.0, rng=None, handoff_clear_mm=None, max_jitter_tries=5):
+                   jitter_mm=0.0, jitter_deg=0.0, rng=None, handoff_clear_mm=None, max_jitter_tries=5, nearest=False):
     """연결된 Arm을 사용한다. 연결 해제는 호출자가 담당한다. 끝난 자세의 기록(dict, "plan" 포함)을 돌려준다.
 
     성공은 관절 목표 도달을 뜻하며, 영상으로 실제 중심 정렬을 검증하지는 않는다.
@@ -133,14 +133,16 @@ def approach_block(arm, cap, gains, kin, calib, poses, correction, *, color="pur
     # HOME 이동 전에 버퍼에 남아 있던 영상을 비운다.
     for _ in range(5):
         cap.read()
-    pose, _, note = detect_block_pose(cap, gains, color, calib)
+    pose, _, note = detect_block_pose(cap, gains, color, calib, nearest=nearest)
     print(note, flush=True)
     if pose is None:
-        raise RuntimeError("블록을 검출하지 못했습니다.")
+        raise RuntimeError(f"블록을 검출하지 못했습니다: {note}")
     if not np.isfinite(pose).all():
         raise RuntimeError("블록 좌표가 유효하지 않습니다.")
     x0, y0, z_top, yaw0 = (float(v) for v in pose)
     rec["block_camera"] = _r([x0, y0, z_top, yaw0], 1)
+    out_cal = outside_mm(calib, x0, y0)
+    rec["outside_calib_mm"] = None if not np.isfinite(out_cal) else round(max(float(out_cal), 0.0), 1)   # 0 = 보정점 범위 안
     xc, yc, yawc = correction.apply(x0, y0, yaw0)
     if not np.isfinite([xc, yc, z_top, yawc]).all():
         raise RuntimeError("보정된 목표가 유효하지 않습니다.")

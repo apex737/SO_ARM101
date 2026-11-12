@@ -48,3 +48,19 @@ def test_jaw_center_not_tip_is_on_block(kin):
         tip, _ = kin.fk(plan.q_pre)
         assert np.hypot(c[0] - 200, c[1] - 30) < 1.0
         assert np.hypot(tip[0] - 200, tip[1] - 30) == pytest.approx(abs(p.jaw_center_mm[0]), abs=1.0)
+
+
+def test_near_base_block_needs_lower_approach_and_other_wrist_candidate():
+    # 실물(2026-11-12): 주황 블록 (100, 44), 각도 37° → "닿지 않음 15.5mm"로 거부됨
+    import numpy as np
+
+    from kitbot_exec import pick
+    from kitbot_exec.arm import load_poses
+    from kitbot_exec.kinematics import SO101Kinematics
+    kin = SO101Kinematics(); q_home = np.array(load_poses()["home"]["q_deg"])
+    assert not pick.plan_pick(kin, 100.3, 44.5, 8.8, 37.0, q_home).ok
+    plan = pick.plan_pick_adaptive(kin, 100.3, 44.5, 8.8, 37.0, q_home)
+    assert plan.ok and plan.info["approach_mm"] == 30.0 and "low_height" in plan.info
+    # 평소 자리는 그대로 기본 높이·기본 손목
+    normal = pick.plan_pick_adaptive(kin, 120.0, 160.0, 4.0, 0.0, q_home)
+    assert normal.ok and "low_height" not in normal.info and "roll_candidate" not in normal.info

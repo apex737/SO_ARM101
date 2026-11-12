@@ -67,8 +67,53 @@ def jaw_center_xy(kin: SO101Kinematics, q_deg, jaw_center_mm) -> np.ndarray:
     return p[:2] + jaw_offset_xy(kin, q_deg, jaw_center_mm)
 
 
+ROLL_TRIES = (None, 90.0, -90.0, 180.0, -180.0)   # 손목 값 후보: 기본(0°에 가까운 것) → 90°씩 돌린 것
+
+
 def plan_pick(kin: SO101Kinematics, x, y, z_top, yaw, q_seed, p: PickParams = PickParams()) -> PickPlan:
-    """블록 위치·각도 → 관절 경로. 팔을 움직이지 않는다."""
+    """블록 위치·각도 → 관절 경로. 팔을 움직이지 않는다.
+    블록은 정사각형이라 손목을 90°씩 돌린 자세도 같은 집기다. 두 부리 가운데가 모델 그리퍼 끝에서 22mm 떨어져 있어
+    손목 값에 따라 팔이 가야 할 자리가 달라지므로, 기본 후보로 안 되면(받침대에 너무 가깝거나 먼 자리) 다른 후보를 차례로 시도한다."""
+    first = None
+    base = None
+    for add in ROLL_TRIES:
+        pref = None if add is None else (base + add if base is not None else add)
+        plan = _plan_pick_roll(kin, x, y, z_top, yaw, q_seed, p, pref)
+        if plan.ok:
+            if add is not None:
+                plan.info["roll_candidate"] = f"기본 손목 값으로는 안 돼 {add:+.0f}° 돌린 후보 사용 (기본 실패: {first.reason})"
+            return plan
+        if first is None:
+            first = plan
+            base = plan.info.get("roll_first") if plan.info else None
+            base = 0.0 if base is None else base
+    return first
+
+
+LOW_HEIGHTS_MM = (30.0, 25.0)   # 기본 접근·들기 높이(40mm)로 안 닿을 때 차례로 낮춰 볼 높이
+
+
+def plan_pick_adaptive(kin: SO101Kinematics, x, y, z_top, yaw, q_seed, p: PickParams = PickParams()) -> PickPlan:
+    """plan_pick이 안 되면 접근·들기 높이를 낮춰 다시 계획한다 (순수 IK용).
+    받침대 가까운 자리(약 110mm 안팎)는 높이 40mm에서 수직 자세가 안 나오고, 낮은 높이에서는 나온다(2026-11-12 실물 사례)."""
+    from dataclasses import replace
+
+    first = plan_pick(kin, x, y, z_top, yaw, q_seed, p)
+    if first.ok:
+        return first
+    for h in LOW_HEIGHTS_MM:
+        if h >= p.approach_mm:
+            continue
+        plan = plan_pick(kin, x, y, z_top, yaw, q_seed, replace(p, approach_mm=h, lift_mm=min(p.lift_mm, h)))
+        if plan.ok:
+            plan.info["low_height"] = f"접근·들기 높이를 {h:.0f}mm로 낮춤 (기본 {p.approach_mm:.0f}mm 실패: {first.reason})"
+            plan.info["approach_mm"] = h
+            return plan
+    return first
+
+
+def _plan_pick_roll(kin: SO101Kinematics, x, y, z_top, yaw, q_seed, p: PickParams, roll_pref) -> PickPlan:
+    """손목 값 후보 하나(roll_pref에 가장 가까운 것)로 계획."""
     z_table = z_top - p.block_mm
     z_min = z_table + p.table_margin_mm
     z_pre, z_grasp, z_lift = z_top + p.approach_mm, z_top - p.grasp_depth_mm, z_top + p.lift_mm
@@ -76,7 +121,7 @@ def plan_pick(kin: SO101Kinematics, x, y, z_top, yaw, q_seed, p: PickParams = Pi
     if z_grasp < z_min:
         return PickPlan(False, f"집기 높이 {z_grasp:.1f} < 테이블 + 여유 {z_min:.1f}", block)
 
-    roll_keep = [None]  # 처음 고른 손목 값 후보를 끝까지 유지 (90° 주기 후보가 바뀌면 22mm 차이 방향도 돌아감)
+    roll_keep = [roll_pref]  # 처음 고른 손목 값 후보를 끝까지 유지 (90° 주기 후보가 바뀌면 22mm 차이 방향도 돌아감)
 
     def ik(z, seed):
         # 두 부리 가운데가 (x, y)에 오도록 모델 그리퍼 끝 목표를 옮긴다. 옮길 방향은 손목 방향에 달려 있어 몇 번 반복.
@@ -133,46 +178,104 @@ def plan_pick(kin: SO101Kinematics, x, y, z_top, yaw, q_seed, p: PickParams = Pi
     return PickPlan(True, "", block, pre.q_deg, stretch(down), stretch(up), info)
 
 
-WORK_AREA_MARGIN_MM = 25.0   # 보정점 범위(볼록 다각형) 바깥 이 거리까지는 작업 영역으로 본다
+# 집을 수 있는 자리 = 바구니 앞 아래 테두리 선보다 로봇 쪽(테이블). 선 너머(바구니 안·키트 박스 쪽) 블록은 세지 않는다.
+# (2026-11-12 사용자 결정: 보정점 범위 + 25mm 제한을 없애고 보정점 범위 밖도 접근. 처음 제한은 바구니 안 블록을 거르려는 것이었는데
+#  범위를 너무 넓게 잡아 바구니 앞 테이블 블록까지 막았다.)
+# 선: 위 카메라 사진에서 바구니(진초록) 앞쪽 아래 테두리 픽셀을 calib_top.json으로 로봇 좌표로 옮겨 직선 맞춤.
+#     바구니를 옮기면 다시 잴 것 (S05 검증 이력 2026-11-12). 블록 반 변(12.5mm)만큼은 테두리 앞뒤가 갈린다.
+BASKET_FRONT = (0.1062, 189.9)       # x = a·y + b [mm]
 
 
-def in_work_area(calib, x, y, margin_mm: float = WORK_AREA_MARGIN_MM) -> bool:
-    """블록 자리가 작업 영역(보정점 범위 + margin) 안인가. 바구니 안 블록·화면 가장자리 물체를 거르려는 것.
-    보정점이 없으면 거르지 않는다."""
-    pts = getattr(calib, "pairs_mm", None)
-    if pts is None or len(pts) < 3:
-        return True
+def basket_front_x(y: float) -> float:
+    a, b = BASKET_FRONT
+    return a * float(y) + b
+
+
+def beyond_basket_front(x, y) -> float:
+    """바구니 앞 테두리 선 너머로 몇 mm인가 (양수 = 바구니·키트 박스 쪽 → 집지 않음)."""
+    return float(x) - basket_front_x(y)
+
+
+def outside_mm(calib, x, y, margin_mm: float = 0.0) -> float:
+    """보정점 범위(볼록 다각형) 밖으로 몇 mm인가. 안이면 0 이하. 보정점이 없으면 -inf.
+    범위 밖은 카메라 → 로봇 좌표 변환을 늘려 쓴 값이라 정확도가 확인되지 않았다(접근은 한다, 기록만)."""
+    try:
+        pts = np.asarray(getattr(calib, "pairs_mm", None), np.float32)
+    except (TypeError, ValueError):
+        return -np.inf
+    if pts.ndim != 2 or len(pts) < 3:
+        return -np.inf
     import cv2
 
-    hull = cv2.convexHull(np.ascontiguousarray(np.asarray(pts, np.float32)[:, :2]))
-    return cv2.pointPolygonTest(hull, (float(x), float(y)), True) >= -margin_mm
+    hull = cv2.convexHull(np.ascontiguousarray(pts[:, :2]))
+    return -cv2.pointPolygonTest(hull, (float(x), float(y)), True) - margin_mm
 
 
-def detect_block_pose(cap, gains, color, calib, n_frames=15):
-    """여러 장에서 같은 블록을 찾아 평균. 작업 영역 안에서 블록이 정확히 하나여야 함
-    (가장 큰 것을 고르지 않는다: 잘못 집는 것 방지). 바구니 안처럼 작업 영역 밖 블록은 세지 않는다."""
+def in_work_area(calib, x, y) -> bool:
+    """집을 대상으로 셀 자리인가: 바구니 앞 테두리 선보다 로봇 쪽. (보정점 범위는 따지지 않는다. 팔이 닿는지는 plan_pick이 본다)"""
+    return beyond_basket_front(x, y) < 0
+
+
+def why_not_found(calib, color, n_in: list[int], beyond: list) -> str:
+    """블록을 못 정한 이유를 사람이 바로 고칠 수 있게. n_in = 장마다 테이블 쪽 개수, beyond = 바구니 쪽에서 본 자리들."""
+    many = max(n_in, default=0)
+    if many >= 2 and n_in.count(many) >= len(n_in) // 2:
+        return f"테이블에 '{color}' 블록이 {many}개 보임 → 하나만 남기기 (같은 색 블록이 붙어 있어도 이렇게 보일 수 있음)"
+    if beyond:
+        P = np.asarray([p[:2] for p in beyond], float)
+        x, y = np.median(P, axis=0)
+        return (f"'{color}' 블록이 바구니 쪽에서만 보임: x={x:.0f}, y={y:.0f}mm, 바구니 앞 테두리 선(x≈{basket_front_x(y):.0f})에서 "
+                f"{beyond_basket_front(x, y):.0f}mm 너머 → 바구니 밖 테이블에 놓기 (바구니를 옮겼다면 pick.BASKET_FRONT를 다시 잴 것)")
+    return f"'{color}' 블록이 안 보임 (가려졌거나, 조명·색 범위 문제일 수 있음)"
+
+
+SAME_BLOCK_MM = 15.0   # 장마다 같은 블록으로 볼 거리 (블록 한 변 25mm보다 작게)
+
+
+def detect_block_pose(cap, gains, color, calib, n_frames=15, nearest=False):
+    """여러 장에서 같은 블록을 찾아 평균. 바구니 안 블록은 세지 않는다. 보정점 범위 밖이면 경고만.
+    nearest=False: 테이블에 그 색 블록이 정확히 하나여야 함 (ACT 녹화·실행: 시연과 같은 장면 유지).
+    nearest=True : 여러 개면 로봇 받침대(좌표 원점)에서 가장 가까운 블록을 고른다 (순수 IK).
+                   첫 장에서 고른 블록을 이후 장에서도 따라가, 두 블록 값이 섞여 평균되지 않게 한다."""
     from .camera import correct_wb
     from .vision import detect_blocks
 
-    poses, frame = [], None
+    poses, frame, ref = [], None, None
+    outside, n_in = [], []                      # 실패했을 때 이유를 알려 주려고 모아 둠
     for _ in range(n_frames * 2):
         ok, frame = cap.read()
         if not ok:
             continue
         frame = correct_wb(frame, gains)
         found = [(b, calib.block_pose(b)) for b in detect_blocks(frame, color)]
-        found = [(b, pose) for b, pose in found if in_work_area(calib, pose[0], pose[1])]
-        if len(found) == 1:
-            poses.append(found[0][1])
+        inside = [(b, pose) for b, pose in found if in_work_area(calib, pose[0], pose[1])]
+        outside += [pose for _, pose in found if not in_work_area(calib, pose[0], pose[1])]
+        n_in.append(len(inside))
+        if nearest and inside:
+            cand = [pose for _, pose in inside]
+            if ref is None:
+                ref = min(cand, key=lambda q: float(np.hypot(q[0], q[1])))
+            same = min(cand, key=lambda q: float(np.hypot(q[0] - ref[0], q[1] - ref[1])))
+            if np.hypot(same[0] - ref[0], same[1] - ref[1]) <= SAME_BLOCK_MM:
+                poses.append(same)
+        elif len(inside) == 1:
+            poses.append(inside[0][1])
         if len(poses) >= n_frames:
             break
     if len(poses) < n_frames // 2:
-        return None, frame, f"작업 영역에 '{color}' 블록이 정확히 1개 보이지 않음 (0개이거나 2개 이상)"
+        return None, frame, why_not_found(calib, color, n_in, outside)
     P = np.asarray(poses)
     yaw = np.rad2deg(np.arctan2(np.sin(np.deg2rad(4 * P[:, 3])).mean(), np.cos(np.deg2rad(4 * P[:, 3])).mean()) / 4)
     pose = (*P[:, :3].mean(axis=0), float(yaw))
     spread = float(np.max(np.linalg.norm(P[:, :2] - P[:, :2].mean(axis=0), axis=1)))
-    return pose, frame, f"블록 위치 흔들림 최대 {spread:.1f}mm ({len(P)}장)"
+    note = f"블록 위치 흔들림 최대 {spread:.1f}mm ({len(P)}장)"
+    many = max(n_in, default=0)
+    if nearest and many >= 2:
+        note += f"  ※ '{color}' {many}개 중 로봇에서 가장 가까운 것(받침대에서 {np.hypot(pose[0], pose[1]):.0f}mm)을 고름"
+    out = outside_mm(calib, pose[0], pose[1])
+    if out > 0:
+        note += f"  ※ 보정점 범위 밖 {out:.0f}mm: 카메라 좌표를 늘려 쓴 자리라 접근 정확도는 확인 전"
+    return pose, frame, note
 
 
 def screen_axes(calib, x, y) -> np.ndarray:
@@ -262,7 +365,8 @@ def measure_with_leader(arm, leader, kin, q_ref, axes, jaw_center_mm=PickParams.
     return None if cmd == "x" else q
 
 
-def main() -> None:
+def main(argv=None) -> dict:
+    """한 번 집기. 기록 dict를 돌려준다(compare 실험에서 반복 호출)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--color", default="red")
     ap.add_argument("--dry", action="store_true", help="팔을 움직이지 않고 계산·검사만")
@@ -270,7 +374,7 @@ def main() -> None:
     ap.add_argument("--no-place", action="store_true",
                     help="블록 위 접근까지만. 멈춘 뒤 리더암으로 정확한 위치에 맞추면 어긋남을 기록해 다음부터 자동 보정")
     ap.add_argument("--no-correction", action="store_true", help="기록된 접근 보정을 쓰지 않음")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     from .arm import Arm, Leader, load_poses
     from .calib import PixelToRobot
@@ -292,6 +396,7 @@ def main() -> None:
     kin = SO101Kinematics()
     calib = PixelToRobot.load(CALIB)
     q_home = np.array(poses["home"]["q_deg"])
+    g_home = float(poses["home"].get("gripper", g_closed))   # HOME에서 끝낼 때 그리퍼 (닫힘)
     log = {"time": time.strftime("%Y-%m-%d %H:%M:%S"), "color": args.color, "dry": args.dry}
 
     def stage(name):
@@ -308,26 +413,29 @@ def main() -> None:
         if arm:
             stage("HOME으로 (카메라가 블록을 볼 수 있게 팔을 비킴)")
             arm.move_joints(q_home, g_open, params.joint_speed_dps)
-        pose, _, note = detect_block_pose(cap, gains, args.color, calib)
+        pose, _, note = detect_block_pose(cap, gains, args.color, calib, nearest=True)
         print("검출:", note)
         if pose is None:
-            log.update(result="no_block"); return
+            log.update(result="no_block"); return log
         x0, y0, z_top, yaw0 = pose
         x, y, yaw = corr.apply(x0, y0, yaw0)
         if corr.mode != "none":
             print(f"보정 적용: 카메라 ({x0:.1f}, {y0:.1f}, {yaw0:+.1f}°) → ({x:.1f}, {y:.1f}, {yaw:+.1f}°)")
-        plan = plan_pick(kin, x, y, z_top, yaw, q_home, params)
+        plan = plan_pick_adaptive(kin, x, y, z_top, yaw, q_home, params)
         log.update(block_camera=[round(x0, 1), round(y0, 1), round(yaw0, 1)], correction=corr.mode,
                    block=plan.block, plan_ok=plan.ok, plan_reason=plan.reason, plan_info=plan.info)
         print("블록 (로봇 좌표):", plan.block)
         if not plan.ok:
             print("계획 실패 → 움직이지 않음:", plan.reason)
-            log.update(result="plan_failed"); return
+            log.update(result="plan_failed"); return log
         print("계획:", plan.info)
         if args.dry:
-            log.update(result="dry_ok"); return
+            log.update(result="dry_ok"); return log
 
-        stage(f"블록 위 {params.approach_mm:.0f}mm로 이동 + 손목 회전")
+        for key in ("roll_candidate", "low_height"):
+            if key in plan.info:
+                print("  ※", plan.info[key])
+        stage(f"블록 위 {plan.info.get('approach_mm', params.approach_mm):.0f}mm로 이동 + 손목 회전")
         arm.move_joints(plan.q_pre, g_open, params.joint_speed_dps)
         if args.no_place:
             q_user = measure_with_leader(arm, leader, kin, plan.q_pre, screen_axes(calib, x, y), params.jaw_center_mm)
@@ -348,7 +456,7 @@ def main() -> None:
             stage("HOME으로 (블록 위 접근 높이를 거쳐서)")
             arm.move_joints(plan.q_pre, g_open, params.joint_speed_dps)
             arm.move_joints(q_home, g_open, params.joint_speed_dps)
-            log.update(result="approach_measured" if q_user is not None else "approach_only"); return
+            log.update(result="approach_measured" if q_user is not None else "approach_only"); return log
         stage("내려가기")
         arm.follow(plan.down, g_open)
         stage("집기")
@@ -364,7 +472,9 @@ def main() -> None:
             stage("빈손 → 그리퍼 열고 HOME")
             arm.set_gripper(g_open, 0.5)
             arm.move_joints(q_home, g_open, params.joint_speed_dps)
-            log.update(result="empty"); return
+            stage("HOME에서 그리퍼 닫기")
+            arm.set_gripper(g_home, 0.8)
+            log.update(result="empty"); return log
         q_basket = np.array(poses["basket"]["q_deg"])
         q_lift = arm.read()[0]
         # 관절을 한꺼번에 움직이면 도중에 팔이 낮게 휘어 바구니 테두리를 칠 수 있다.
@@ -379,7 +489,11 @@ def main() -> None:
         stage("HOME으로 (어깨 먼저 돌리고 나머지)")
         arm.move_joints(np.r_[q_home[0], q_basket[1:]], g_open, params.joint_speed_dps)
         arm.move_joints(q_home, g_open, params.joint_speed_dps)
+        # 시연처럼 HOME에서 그리퍼를 닫고 끝낸다 (HOME 자세의 그리퍼 값 = 닫힘)
+        stage("HOME에서 그리퍼 닫기")
+        arm.set_gripper(g_home, 0.8)
         log.update(result="placed")
+        return log
     finally:
         cap.release()
         if leader:
