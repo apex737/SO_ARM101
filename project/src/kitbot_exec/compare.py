@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 import numpy as np
@@ -82,21 +83,26 @@ def place_record(calib, x: float, y: float, demos: np.ndarray | None = None) -> 
 
 
 def parse_queue(text: str, colors) -> list[tuple[str, int | None]]:
-    """'orange 2, yellow 1, blue' → [('orange', 2), ('yellow', 1), ('blue', None)]. 수를 안 쓰거나 all이면 안 보일 때까지."""
-    out = []
-    for part in text.replace(";", ",").split(","):
-        w = part.split()
-        if not w:
-            continue
-        color = w[0].lower()
+    """'orange 2, yellow 1, blue' 또는 쉼표 없이 'orange 2 yellow 1 blue' → [('orange', 2), ('yellow', 1), ('blue', None)].
+    수를 안 쓰거나 all이면 안 보일 때까지."""
+    words = text.replace(",", " ").replace(";", " ").lower().split()
+    out, i = [], 0
+    while i < len(words):
+        color = words[i]
         if color not in colors:
-            raise SystemExit(f"큐: 모르는 색 '{color}'. 가능: {', '.join(sorted(colors))}")
+            raise SystemExit(f"큐: 모르는 색 '{color}'. 가능: {', '.join(sorted(colors))} (예: \"orange 2, yellow 1\")")
         n = None
-        if len(w) > 1 and w[1].lower() not in ("all", "*"):
-            if not w[1].isdigit() or int(w[1]) < 1:
-                raise SystemExit(f"큐: '{part.strip()}'의 개수는 1 이상의 수 또는 all")
-            n = int(w[1])
+        nxt = words[i + 1] if i + 1 < len(words) else None
+        if nxt is not None and nxt not in colors:
+            if nxt in ("all", "*"):
+                n = None
+            elif nxt.isdigit() and int(nxt) >= 1:
+                n = int(nxt)
+            else:
+                raise SystemExit(f"큐: '{color} {nxt}'의 개수는 1 이상의 수 또는 all")
+            i += 1
         out.append((color, n))
+        i += 1
     if not out:
         raise SystemExit("큐가 비어 있음. 예: --queue \"orange 2, yellow 1\"")
     return out
@@ -221,7 +227,7 @@ def save_photos(folder: Path, tag: str, frames: dict) -> dict:
     for name, img in frames.items():
         if img is None:
             continue
-        p = folder / f"{tag}_{name}.jpg"
+        p = folder / f"{time.strftime('%m%d_%H%M%S')}_{tag}_{name}.jpg"   # 시각을 붙여 같은 이름으로 다시 돌려도 덮어쓰지 않게
         cv2.imwrite(str(p), img)
         out[name] = str(p.relative_to(SRC)) if p.is_relative_to(SRC) else str(p)
     return out

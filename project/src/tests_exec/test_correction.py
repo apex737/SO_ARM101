@@ -117,3 +117,23 @@ def test_nearest_mode_picks_block_closest_to_robot_and_tracks_it(monkeypatch):
     order = iter([[far, near]] * 40)
     pose, _, note = pick.detect_block_pose(cap, None, "purple", calib)
     assert pose is None and "2개 보임" in note
+
+
+def test_pure_ik_range_skips_blocks_outside_calibration_plus_margin(monkeypatch):
+    from types import SimpleNamespace
+
+    from kitbot_exec import pick
+    calib = SimpleNamespace(pairs_mm=np.array([[87, 38, 0], [150, 38, 0], [150, 239, 0], [87, 239, 0]], float),
+                            block_pose=lambda b: b)
+    cap = SimpleNamespace(read=lambda: (True, np.zeros((4, 4, 3), np.uint8)))
+    monkeypatch.setattr("kitbot_exec.camera.correct_wb", lambda f, g: f)
+    near_but_out = (100.0, 5.0, 4.0, 0.0)      # 받침대에 가장 가깝지만 범위에서 33mm 밖
+    inside = (130.0, 150.0, 4.0, 5.0)
+    monkeypatch.setattr("kitbot_exec.vision.detect_blocks", lambda f, c: [near_but_out, inside])
+    pose, _, _ = pick.detect_block_pose(cap, None, "purple", calib, nearest=True, max_outside_mm=25)
+    assert pose[:2] == pytest.approx((130, 150))                 # 범위 안 블록만 후보
+    pose, _, _ = pick.detect_block_pose(cap, None, "purple", calib, nearest=True)
+    assert pose[:2] == pytest.approx((100, 5))                   # 제한 없으면(ACT 쪽) 가까운 것
+    monkeypatch.setattr("kitbot_exec.vision.detect_blocks", lambda f, c: [near_but_out])
+    pose, _, note = pick.detect_block_pose(cap, None, "purple", calib, nearest=True, max_outside_mm=25)
+    assert pose is None and note.startswith(pick.OUT_OF_RANGE) and "33mm" in note

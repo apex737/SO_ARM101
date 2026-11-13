@@ -234,7 +234,7 @@ def test_main_one_full_trial_with_fake_hardware(tmp_path, monkeypatch):
     assert len(rows) == 1 and rows[0]["verdict"] == "s" and rows[0]["auto"] == "policy_home" and rows[0]["home_ok"]
     assert rows[0]["method"] == "ik_act" and rows[0]["nearest_demo_mm"] is not None
     assert arm.grip_cmds[-1] == 1.3                                # 끝에 HOME에서 그리퍼 닫기
-    assert (tmp_path / "t" / "t01_top.jpg").exists()
+    assert any((tmp_path / "t").glob("*_t01_top.jpg"))
 
 
 def test_run_diffusion_fills_defaults_and_checks_n_action():

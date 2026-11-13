@@ -229,11 +229,17 @@ def why_not_found(calib, color, n_in: list[int], beyond: list) -> str:
     return f"'{color}' 블록이 안 보임 (가려졌거나, 조명·색 범위 문제일 수 있음)"
 
 
+OUT_OF_RANGE = "범위 밖"
 SAME_BLOCK_MM = 15.0   # 장마다 같은 블록으로 볼 거리 (블록 한 변 25mm보다 작게)
 
 
-def detect_block_pose(cap, gains, color, calib, n_frames=15, nearest=False):
-    """여러 장에서 같은 블록을 찾아 평균. 바구니 안 블록은 세지 않는다. 보정점 범위 밖이면 경고만.
+IK_RANGE_MARGIN_MM = 25.0   # 순수 IK가 집는 범위: 보정점 범위 + 이 거리 안 (2026-11-13 사용자 결정)
+
+
+def detect_block_pose(cap, gains, color, calib, n_frames=15, nearest=False, max_outside_mm=None):
+    """여러 장에서 같은 블록을 찾아 평균. 바구니 안 블록은 세지 않는다.
+    max_outside_mm=None: 보정점 범위 밖이면 경고만 (ACT·디퓨전: 테이블 어디든).
+    max_outside_mm=25 등: 보정점 범위 + 이 거리 밖의 블록은 없는 것으로 본다 (순수 IK: 카메라 좌표를 잰 범위에서만 집는다).
     nearest=False: 테이블에 그 색 블록이 정확히 하나여야 함 (ACT 녹화·실행: 시연과 같은 장면 유지).
     nearest=True : 여러 개면 로봇 받침대(좌표 원점)에서 가장 가까운 블록을 고른다 (순수 IK).
                    첫 장에서 고른 블록을 이후 장에서도 따라가, 두 블록 값이 섞여 평균되지 않게 한다."""
@@ -241,7 +247,7 @@ def detect_block_pose(cap, gains, color, calib, n_frames=15, nearest=False):
     from .vision import detect_blocks
 
     poses, frame, ref = [], None, None
-    outside, n_in = [], []                      # 실패했을 때 이유를 알려 주려고 모아 둠
+    outside, n_in, far = [], [], []                      # 실패했을 때 이유를 알려 주려고 모아 둠
     for _ in range(n_frames * 2):
         ok, frame = cap.read()
         if not ok:
@@ -250,6 +256,9 @@ def detect_block_pose(cap, gains, color, calib, n_frames=15, nearest=False):
         found = [(b, calib.block_pose(b)) for b in detect_blocks(frame, color)]
         inside = [(b, pose) for b, pose in found if in_work_area(calib, pose[0], pose[1])]
         outside += [pose for _, pose in found if not in_work_area(calib, pose[0], pose[1])]
+        if max_outside_mm is not None:
+            far += [pose for _, pose in inside if outside_mm(calib, pose[0], pose[1]) > max_outside_mm]
+            inside = [(b, pose) for b, pose in inside if outside_mm(calib, pose[0], pose[1]) <= max_outside_mm]
         n_in.append(len(inside))
         if nearest and inside:
             cand = [pose for _, pose in inside]
@@ -263,6 +272,11 @@ def detect_block_pose(cap, gains, color, calib, n_frames=15, nearest=False):
         if len(poses) >= n_frames:
             break
     if len(poses) < n_frames // 2:
+        if far and not any(n_in):
+            P = np.asarray([p[:2] for p in far], float)
+            x, y = np.median(P, axis=0)
+            return None, frame, (f"{OUT_OF_RANGE}: '{color}' 블록이 보정점 범위 + {max_outside_mm:.0f}mm 밖에만 있음 "
+                                 f"(x={x:.0f}, y={y:.0f}mm, 범위에서 {outside_mm(calib, x, y):.0f}mm) → 순수 IK는 집지 않음")
         return None, frame, why_not_found(calib, color, n_in, outside)
     P = np.asarray(poses)
     yaw = np.rad2deg(np.arctan2(np.sin(np.deg2rad(4 * P[:, 3])).mean(), np.cos(np.deg2rad(4 * P[:, 3])).mean()) / 4)
@@ -374,6 +388,9 @@ def main(argv=None) -> dict:
     ap.add_argument("--no-place", action="store_true",
                     help="블록 위 접근까지만. 멈춘 뒤 리더암으로 정확한 위치에 맞추면 어긋남을 기록해 다음부터 자동 보정")
     ap.add_argument("--no-correction", action="store_true", help="기록된 접근 보정을 쓰지 않음")
+    ap.add_argument("--max-outside-mm", type=float, default=IK_RANGE_MARGIN_MM,
+                    help="보정점 범위 밖 이 거리까지만 집는다 [mm] (기본 25). 밖의 블록은 없는 것으로 봄")
+    ap.add_argument("--any-place", action="store_true", help="범위 제한 없이 테이블 어디든 (예전 동작)")
     args = ap.parse_args(argv)
 
     from .arm import Arm, Leader, load_poses
@@ -413,10 +430,11 @@ def main(argv=None) -> dict:
         if arm:
             stage("HOME으로 (카메라가 블록을 볼 수 있게 팔을 비킴)")
             arm.move_joints(q_home, g_open, params.joint_speed_dps)
-        pose, _, note = detect_block_pose(cap, gains, args.color, calib, nearest=True)
+        pose, _, note = detect_block_pose(cap, gains, args.color, calib, nearest=True,
+                                          max_outside_mm=None if args.any_place else args.max_outside_mm)
         print("검출:", note)
         if pose is None:
-            log.update(result="no_block"); return log
+            log.update(result="out_of_range" if note.startswith(OUT_OF_RANGE) else "no_block", note=note); return log
         x0, y0, z_top, yaw0 = pose
         x, y, yaw = corr.apply(x0, y0, yaw0)
         if corr.mode != "none":

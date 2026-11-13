@@ -29,6 +29,8 @@ def main(argv=None):
     ap.add_argument("--grid", action="store_true", help="평가 격자 g01~g09를 순서대로 안내·확인 (기본: 아무 자리)")
     ap.add_argument("--place-tol", type=float, default=15.0, help="--grid일 때 격자점 거리 허용 [mm]")
     ap.add_argument("--step", action="store_true", help="pick.py 단계마다 Enter")
+    ap.add_argument("--max-outside-mm", type=float, help="보정점 범위 밖 이 거리까지만 집는다 [mm] (기본 pick.py의 25)")
+    ap.add_argument("--any-place", action="store_true", help="범위 제한 없이 테이블 어디든")
     ap.add_argument("--queue", help='큐: "orange 2, yellow 1, blue" = 주황 최대 2개 → 노랑 최대 1개 → 파랑은 안 보일 때까지. '
                                     "그 색이 안 보이면 다음 명령으로. 묻지 않고 이어서 실행(사람 판정 없음)")
     args = ap.parse_args(argv)
@@ -75,13 +77,17 @@ def main(argv=None):
                 cap.release()
         t0 = time.monotonic()
         try:
-            pl = pick_once(["--color", color, "--no-correction"] + (["--step"] if args.step else []))
+            extra = (["--step"] if args.step else []) + (["--any-place"] if args.any_place else []) + \
+                    (["--max-outside-mm", str(args.max_outside_mm)] if args.max_outside_mm is not None else [])
+            pl = pick_once(["--color", color, "--no-correction"] + extra)
         except Exception as e:  # 연결 오류 등. 기록은 남기고 계속할지 묻는다
             pl = {"result": "error", "error": repr(e)}
             print("  오류:", e)
         dur = time.monotonic() - t0
         if queue is not None:
-            outcome = {"placed": "ok", "no_block": "none"}.get(pl.get("result"), "fail")
+            outcome = {"placed": "ok", "no_block": "none", "out_of_range": "none"}.get(pl.get("result"), "fail")
+            if pl.get("result") == "out_of_range":
+                print("  ", pl.get("note", ""))
             queue.report(outcome)
             if outcome == "none":
                 continue                                   # 블록이 없어 아무것도 안 함 → 기록하지 않음

@@ -104,7 +104,7 @@ def test_eval_ik_default_is_free_placement_with_recorded_position(tmp_path, monk
     assert pre == [] and all("--no-correction" in a for a in calls) and len(calls) == 2
     assert [r["verdict"] for r in rows] == ["s", "g"] and "grid" not in rows[0]
     assert rows[0]["nearest_demo_mm"] == pytest.approx(4.1, abs=0.1) and rows[1]["near"] == "시연≥40"
-    assert rows[0]["method"] == "ik" and rows[0]["home_ok"] and (tmp_path / "ik_t" / "t01_top.jpg").exists()
+    assert rows[0]["method"] == "ik" and rows[0]["home_ok"] and any((tmp_path / "ik_t").glob("*_t01_top.jpg"))
 
 
 def test_eval_ik_grid_mode_guides_grid_points(tmp_path, monkeypatch):
@@ -125,6 +125,9 @@ COLORS = ["blue", "green", "orange", "purple", "red", "yellow"]
 def test_parse_queue():
     assert cp.parse_queue("orange 2, yellow 1, blue", COLORS) == [("orange", 2), ("yellow", 1), ("blue", None)]
     assert cp.parse_queue("Red all; purple 3", COLORS) == [("red", None), ("purple", 3)]
+    # 쉼표 없이 (실물 2026-11-13: "purple 1 yellow 1"이 보라 1개로만 읽혔음)
+    assert cp.parse_queue("purple 1 yellow 1", COLORS) == [("purple", 1), ("yellow", 1)]
+    assert cp.parse_queue("purple yellow 2 blue", COLORS) == [("purple", None), ("yellow", 2), ("blue", None)]
     for bad in ("pink 1", "orange 0", "orange two", " , "):
         with pytest.raises(SystemExit):
             cp.parse_queue(bad, COLORS)
@@ -165,3 +168,24 @@ def test_eval_ik_queue_runs_without_prompts(tmp_path, monkeypatch):
     rows = cp.read(tmp_path / "q.jsonl")
     assert [r["color"] for r in rows] == ["orange", "orange", "blue"] and table["orange"] == 1
     assert all(r["verdict"] == "?" and r["auto"] == "placed" for r in rows)
+
+
+def test_eval_ik_queue_moves_on_when_only_out_of_range_blocks_remain(tmp_path, monkeypatch):
+    from kitbot_exec import eval_ik
+
+    monkeypatch.setattr(cp, "OUT_DIR", tmp_path)
+    monkeypatch.setattr(cp, "demo_positions", lambda *a, **k: np.array([[100.0, 100.0]]))
+    monkeypatch.setattr("builtins.input", lambda *_: pytest.fail("큐 실행은 묻지 않아야 함"))
+    seq = iter([{"result": "placed", "held": True, "block_camera": [120, 100, 0]},
+                {"result": "out_of_range", "note": "범위 밖: ..."},
+                {"result": "placed", "held": True, "block_camera": [130, 150, 0]},
+                {"result": "no_block"}])
+    calls = []
+    with patch("kitbot_exec.pick.main", side_effect=lambda argv: calls.append(argv) or next(seq)), \
+         patch("kitbot_exec.camera.open_role", return_value=(_Cap(), None)), \
+         patch("kitbot_exec.camera.correct_wb", side_effect=lambda f, g: f), \
+         patch("kitbot_exec.calib.PixelToRobot.load", return_value=type("C", (), {"pairs_mm": None})()):
+        eval_ik.main(["--name", "q", "--queue", "purple 3, yellow", "--max-outside-mm", "15"])
+    assert [a[a.index("--color") + 1] for a in calls] == ["purple", "purple", "yellow", "yellow"]
+    assert all(a[a.index("--max-outside-mm") + 1] == "15.0" for a in calls)
+    assert [r["color"] for r in cp.read(tmp_path / "q.jsonl")] == ["purple", "yellow"]

@@ -35,7 +35,23 @@ class Arm:
                                   disable_torque_on_disconnect=not hold_on_exit,
                                   max_relative_target=max_step_deg)
         self.robot = SO101Follower(cfg)
-        self.robot.connect()
+        try:
+            self.robot.connect()
+        except RuntimeError as e:
+            if "Missing motor IDs" not in str(e):
+                raise
+            # 그리퍼가 눌린 채 오래 힘을 쓰면 서보 과부하 보호가 켜져 응답을 멈춘다.
+            # 그 모터의 힘을 한 번 끄면 풀린다(2026-11-13 실물 확인). 다른 관절은 힘을 그대로 유지한다.
+            cleared = clear_overload(port)
+            if cleared:
+                print(f"  모터 {cleared}번 과부하 보호를 풀었습니다 (힘을 한 번 끔). 다시 연결합니다.")
+                self.robot = SO101Follower(cfg)
+                self.robot.connect()
+            else:
+                raise RuntimeError(
+                    "팔로워 모터 일부가 응답하지 않음 (보통 6번 = 그리퍼). 과부하 풀기도 실패.\n"
+                    "  → 팔로워 전원 어댑터를 뽑고 10초 뒤 다시 꽂은 다음 실행. 계속되면 그 모터 케이블 확인.\n"
+                    f"  (원래 오류: {str(e).splitlines()[0]})") from e
 
     # ---------- 읽기·쓰기 ----------
     def read(self) -> tuple[np.ndarray, float]:
@@ -104,6 +120,33 @@ def _profile(duration_s: float) -> np.ndarray:
     n = max(int(duration_s * HZ), 2)
     t = np.linspace(0.0, 1.0, n)
     return 0.5 - 0.5 * np.cos(np.pi * t)
+
+
+def clear_overload(port: str) -> list[int]:
+    """응답이 없는 모터(1~6번)에 힘 끄기를 보내 과부하 보호를 푼다. 다시 응답하게 된 모터 번호 목록."""
+    from lerobot.motors import Motor, MotorNormMode
+    from lerobot.motors.feetech import FeetechMotorsBus
+
+    bus = FeetechMotorsBus(port, {f"m{i}": Motor(i, "sts3215", MotorNormMode.DEGREES) for i in range(1, 7)})
+    try:
+        bus.connect(handshake=False)
+        before = set(bus.broadcast_ping() or {})
+        missing = [i for i in range(1, 7) if i not in before]
+        for i in missing:
+            try:
+                bus.write("Torque_Enable", f"m{i}", 0, normalize=False, num_retry=2)
+            except Exception:      # 과부하 상태에서는 오류 응답이 오지만 명령은 처리된다
+                pass
+        time.sleep(0.5)
+        after = set(bus.broadcast_ping() or {})
+        return [i for i in missing if i in after]
+    except Exception:
+        return []
+    finally:
+        try:
+            bus.disconnect(disable_torque=False)
+        except Exception:
+            pass
 
 
 class Leader:
